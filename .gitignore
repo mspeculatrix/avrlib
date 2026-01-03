@@ -4,3 +4,4 @@ avr-external
 
 *.obj
 *.o
+.vscode
