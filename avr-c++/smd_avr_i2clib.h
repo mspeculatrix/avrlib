@@ -1,36 +1,25 @@
 /*
 	smd_avr_i2clib
 
-	*** NB: MAY WANT TO REVISIT THIS ***
-	Maybe the I2C device class idea isn't that great. For example, it
-	sets the bus in a specific mode, which presumably then has to be
-	shared by all I2C devices connected to this master.
-	We already have functions, so maybe the 'device' should be
-	little more than a union to contain various parameters for the
-	device - eg, address, error state. Anyway, something to review.
-
+	This is still something of a work in progress.
+	The class has a private property _error that isn't being used much (it's
+	currently set only in the readRegister() function). The idea is that
+	certain functions should set this to 0 before calling any other function
+	that returns an error code (as some of them do).
 
 	*** IMPORTANT ***
-	The program using this library should include the relevant uproc file from my library
-	eg:
+	The program using this library should include the relevant uproc file from
+	my library - eg:
 	#include <uproc/smd_atmega_88_168_328.h>
 	(actually, not sure this is necessary...)
 
-	This is only for microcontrollers that have proper I2C interfaces - don't think it
-	will work for simpler devices with USI.
+	This is only for microcontrollers that have proper I2C interfaces - don't
+	think it will work for simpler devices with USI.
 
 	USAGE:
 	#include <smd_avr_i2clib.h>
 	SMD_I2C_Device dev = SMD_I2C_Device(0x68);
 
-	STATUS CODES - TWSR
-	Master mode - transmitter
-	0x08 - start condition set
-	0x18 - SLA+W sent & ACK received
-	0x20 - SLA+W sent & NOT ACK received
-	0x28 - Data byte sent - ACK received
-	0x30 - data byte sent - NOT ACK received
-	0x38 - Arbitration lost
 */
 
 #include <avr/io.h>
@@ -41,34 +30,35 @@
 #define __SMD_AVR_I2CLIB_H__
 
 #if defined(__AVR_ATmega328P__)
-	#define TWBITRATE_REG TWBR
-	#define TWDATA_REG TWDR
-	#define TWCONTROL_REG TWCR
-	#define TWSTAT_REG TWSR
+#define TWBITRATE_REG TWBR
+#define TWDATA_REG TWDR
+#define TWCONTROL_REG TWCR
+#define TWSTAT_REG TWSR
 #elif defined(__AVR_ATmega328PB__)
-	#define TWBITRATE_REG TWBR0
-	#define TWDATA_REG TWDR0
-	#define TWCONTROL_REG TWCR0
-	#define TWSTAT_REG TWSR0
+#define TWBITRATE_REG TWBR0
+#define TWDATA_REG TWDR0
+#define TWCONTROL_REG TWCR0
+#define TWSTAT_REG TWSR0
 #else
-	#define TWBITRATE_REG TWBR
-	#define TWDATA_REG TWDR
-	#define TWCONTROL_REG TWCR
-	#define TWSTAT_REG TWSR
+#define TWBITRATE_REG TWBR
+#define TWDATA_REG TWDR
+#define TWCONTROL_REG TWCR
+#define TWSTAT_REG TWSR
 #endif
 
 #define I2C_READ_MODE  1
 #define I2C_WRITE_MODE 0
 
-// CONDITIONS/ERRORS IN MASTER TRANSMITTER MODE
+// CONDITIONS/ERRORS IN CONTROLLER TRANSMITTER MODE
 #define I2C_TX_STARTED		0x08	// start condition has been transmitted
-#define I2C_TX_SLAW_ACK		0x10	// SLA+W transmitted, ACK received
+#define I2C_TX_RESTARTED	0x10	// repeated start condition transmitted
+#define I2C_TX_SLAW_ACK		0x18	// SLA+W transmitted, ACK received
 #define I2C_TX_SLAW_NACK	0x20	// SLA+W transmitted, NOT ACK received
 #define I2C_TX_DATA_ACK		0x28	// data byte transmitted, ACK received
 #define I2C_TX_DATA_NACK	0x30	// data byte transmitted, NOT ACK received
 #define I2C_TX_ARB_LOST		0x38	// arbitration lost
 
-// CONDITIONS/ERRORS IN MASTER RECEIVER MODE
+// CONDITIONS/ERRORS IN CONTROLLER RECEIVER MODE
 #define I2C_RX_STARTED		0x08	// start condition has been transmitted
 #define I2C_RX_RESTARTED	0x10	// repeated start condition has been transmitted
 #define I2C_RX_ARB_LOST		0x38	// arbitration lost
@@ -98,32 +88,35 @@
 
 #define I2C_wait_for_completion while(!(TWCONTROL_REG & (1 << TWINT)))
 
+// These are functions that might be useful outside of an SMD_I2C_Device
+// object. On the other hand, it's possible they make no sense at all.
+// Only time will tell.
 namespace smd_avr_i2c {
 
-void I2C_initialise_bus();
-void I2C_initialise_bus(unsigned long busSpeed, uint8_t prescaler_mode);
-//uint8_t checkAlive();
-uint8_t I2C_readNoAck(void);
-uint8_t I2C_readWithAck(void);
-uint8_t I2C_sendByte(uint8_t byteData);
-uint8_t I2C_start(void);							// set start condition without a specific mode
-uint8_t I2C_start(uint8_t address, uint8_t mode);	// set start condition with address and mode
-inline void I2C_stop(void) { TWCONTROL_REG = ((1 << TWINT) | (1 << TWEN) | (1 << TWSTO)); }
-//inline void I2C_waitForComplete(void) {	while(!(TWCR & (1 << TWINT))); }
+	void I2C_enable_pullups(volatile uint8_t* i2cPort, uint8_t sdaGpio, uint8_t sclGpio);
+
+	void I2C_initialise_bus();
+	void I2C_initialise_bus(unsigned long busSpeed, uint8_t prescaler_mode);
+	//uint8_t checkAlive();
+	uint8_t I2C_readNoAck(void);
+	uint8_t I2C_readWithAck(void);
+	uint8_t I2C_sendByte(uint8_t byteData);
+	uint8_t I2C_start(void);							// set start condition without a specific mode
+	uint8_t I2C_start(uint8_t address, uint8_t mode);	// set start condition with address and mode
+	inline void I2C_stop(void) { TWCONTROL_REG = ((1 << TWINT) | (1 << TWEN) | (1 << TWSTO)); }
+	//inline void I2C_waitForComplete(void) {	while(!(TWCR & (1 << TWINT))); }
 
 } // namespace
 
 class SMD_I2C_Device
 {
-/* Class to talk to an I2C slave device */
+	/*  Class to talk to an I2C peripheral device. Assumes the µcontroller is
+		operating in controller mode.  */
 
 public:
 	SMD_I2C_Device(uint8_t address);
 	SMD_I2C_Device(uint8_t address, unsigned long busSpeed);
 	SMD_I2C_Device(uint8_t address, unsigned long busSpeed, uint8_t prescaler_mode);
-	//~SMD_I2C_Device();
-
-	void enableI2Cpullups(volatile uint8_t * i2cPort, uint8_t sdaGpio, uint8_t sclGpio);
 
 	uint8_t readRegister(uint8_t regAddr);
 
@@ -132,8 +125,8 @@ public:
 	uint8_t checkAlive(void);
 	//void setMode(uint8_t mode);
 
-	uint8_t readWithAck(void);
 	uint8_t readNoAck(void);
+	uint8_t readWithAck(void);
 	uint16_t readWord(void);
 	uint16_t readWord(uint8_t byteOrder);
 
@@ -150,6 +143,7 @@ public:
 protected:
 	uint8_t _address;
 	uint8_t _byteOrder;
+	uint8_t _error;
 
 	void _init(uint8_t address, unsigned long busSpeed, uint8_t prescaler_mode);
 	void _waitForComplete(void);		// blocking but fast

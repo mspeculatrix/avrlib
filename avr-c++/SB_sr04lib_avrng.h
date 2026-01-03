@@ -1,0 +1,48 @@
+/*
+ * Library for SR04 ultrasonic rangefinder
+ * For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
+*/
+
+#ifndef __SMD_SR04LIB_AVRNG__
+#define __SMD_SR04LIB_AVRNG__
+
+// Ensure we have io/sfr/pindefs loaded
+#ifndef   _AVR_IO_H_
+#include  <avr/io.h>
+#endif
+
+#include <stdlib.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+#include <SBlib_defines.h>
+#include <SB_modlib_avrng.h>
+// #include "app_defines.h"
+
+#define MSG_BUF_LEN 16
+
+#define MIN_ECHO_TIME 400
+#define MAX_ECHO_TIME 23200
+// #define SR04_PING_SAMPLES 3 	// Must be an odd number
+#define DIST_FACTOR 100
+#define SR04_CLK_PRESCALER 1
+
+#define WAIT_UNTIL_HIGH(port, pin) do { } while (!(port->IN & (pin)))
+#define WAIT_UNTIL_LOW(port, pin) do { } while (port->IN & (pin))
+
+
+class SB_SR04 {
+
+public:
+
+	SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo);
+	uint16_t ping(void);
+
+protected:
+	volatile PORT_t* _port;
+	volatile uint8_t _trigger_pin;
+	volatile uint8_t _echo_pin;
+	volatile uint16_t _last_ping;
+	volatile int32_t _delta;
+};
+
+#endif
