@@ -14,6 +14,7 @@ SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo)
 	// Enable & clock div
 	TCA0.SINGLE.CTRLA = TCA_SINGLE_ENABLE_bm | TCA_SINGLE_CLKSEL_DIV1_gc;
 	_last_ping = 0;
+	_previous_ping = 0;
 }
 
 uint16_t SB_SR04::ping(void) {
@@ -41,7 +42,7 @@ uint16_t SB_SR04::ping(void) {
 	// elapsed = (elapsed * SR04_CLK_PRESCALER) / (F_CPU / 1000000.0);	// to scale for clock speed & prescaler
 //	if (MIN_ECHO_TIME <= elapsed && elapsed <= MAX_ECHO_TIME) {
 	distance = (uint16_t)(elapsed / DIST_FACTOR);
-	_delta = distance - _last_ping;
+	_previous_ping = _last_ping;
 	_last_ping = distance;
 	//	}
 	sei(); 			// re-enable interrupts

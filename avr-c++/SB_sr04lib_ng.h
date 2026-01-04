@@ -36,13 +36,15 @@ public:
 
 	SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo);
 	uint16_t ping(void);
+	uint16_t getLast(void) { return _last_ping; }
+	uint16_t getPrevious(void) { return _previous_ping; }
 
 protected:
 	volatile PORT_t* _port;
 	volatile uint8_t _trigger_pin;
 	volatile uint8_t _echo_pin;
 	volatile uint16_t _last_ping;
-	volatile int32_t _delta;
+	volatile uint16_t _previous_ping;
 };
 
 #endif
