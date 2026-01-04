@@ -19,15 +19,15 @@
  * bool commRequest = false;
 */
 
-#ifndef __SB_MODLIB_AVRNG__
-#define __SB_MODLIB_AVRNG__
+#ifndef __SB_MODULELIB_NG__
+#define __SB_MODULELIB_NG__
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
 #include <smd_std_macros.h>
-#include <SBlib_defines.h>
+#include <SB_lib_defines.h>
 
 #define SB_MAX_TO_LOOP_COUNT 6
 // Transmission delays

@@ -3,8 +3,8 @@
  * For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
 */
 
-#ifndef __SMD_SR04LIB_AVRNG__
-#define __SMD_SR04LIB_AVRNG__
+#ifndef __SR04LIB_NG__
+#define __SR04LIB_NG__
 
 // Ensure we have io/sfr/pindefs loaded
 #ifndef   _AVR_IO_H_
@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include <SBlib_defines.h>
-#include <SB_modlib_avrng.h>
+#include <SB_lib_defines.h>
+#include <SB_modulelib_ng.h>
 // #include "app_defines.h"
 
 #define MSG_BUF_LEN 16

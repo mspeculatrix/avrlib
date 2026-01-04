@@ -5,7 +5,7 @@
   *** IMPORTANT - F_CPU must be set. ***
 
   Typical use:
-  SMD_AVRMod_Serial serial = SMD_AVRMod_Serial(19200, &PORTA, PIN0_bm, PIN1_bm);
+  SMD_NG_Serial serial = SMD_NG_Serial(19200, &PORTA, PIN0_bm, PIN1_bm);
 
   uint8_t error = serial.begin();
 
@@ -60,17 +60,17 @@
 #define SER_RES_EMPTY_STRING 6
 #define SER_ERR_READLINE_BUFFER_TOO_SMALL 7
 
-namespace smd_avrmod_serial {}
+namespace smd_ng_serial {}
 
-class SMD_AVRMod_Serial {
+class SMD_NG_Serial {
 public:
 	// Constructors
-	SMD_AVRMod_Serial(void);
-	SMD_AVRMod_Serial(volatile PORT_t* port,
+	SMD_NG_Serial(void);
+	SMD_NG_Serial(volatile PORT_t* port,
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
-	SMD_AVRMod_Serial(uint32_t baudrate, volatile PORT_t* port,
+	SMD_NG_Serial(uint32_t baudrate, volatile PORT_t* port,
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
-	SMD_AVRMod_Serial(uint32_t baudrate, uint8_t dataBits,
+	SMD_NG_Serial(uint32_t baudrate, uint8_t dataBits,
 		uint8_t stopBits, volatile PORT_t* port,
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
 

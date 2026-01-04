@@ -1,12 +1,12 @@
-#include "smd_serial_avrng.h"
+#include "smd_ng_serial.h"
 
-using namespace smd_avrmod_serial;
+using namespace smd_ng_serial;
 
 // -------------------------------------------------------------------------
 // -----  EXPERIMENTAL                                                 -----
 // -------------------------------------------------------------------------
 
-namespace smd_avrmod_serial {
+namespace smd_ng_serial {
 	uint8_t recvbuf[SER_RECV_BUF_SZ];
 	uint8_t recvbuf_write_idx = 0;
 	uint8_t recvbuf_read_idx = 0;
@@ -25,30 +25,30 @@ ISR(USART0_RXC_vect) { // RX Complete
 // -------------------------------------------------------------------------
 // -----  CONSTRUCTORS                                                 -----
 // -------------------------------------------------------------------------
-SMD_AVRMod_Serial::SMD_AVRMod_Serial(void) {
+SMD_NG_Serial::SMD_NG_Serial(void) {
 	_init(19200, SER_DATA_BITS8, SER_STOP_BITS1, SER_PARITY_NONE, &PORTA, PIN0_bm, PIN1_bm);
 }
 
 // Instantiate with default baudrate, 8 data bits, 1 stop bit
-SMD_AVRMod_Serial::SMD_AVRMod_Serial(volatile PORT_t* port,
+SMD_NG_Serial::SMD_NG_Serial(volatile PORT_t* port,
 	uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_init(19200, SER_DATA_BITS8, SER_STOP_BITS1, SER_PARITY_NONE, port, tx_pin_bm, rx_pin_bm);
 }
 
 // Instantiate with definable baudrate, 8 data bits, 1 stop bit
-SMD_AVRMod_Serial::SMD_AVRMod_Serial(uint32_t baudrate, volatile PORT_t* port, uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
+SMD_NG_Serial::SMD_NG_Serial(uint32_t baudrate, volatile PORT_t* port, uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_init(baudrate, SER_DATA_BITS8, SER_STOP_BITS1, SER_PARITY_NONE, port, tx_pin_bm, rx_pin_bm);
 }
 
 // Specify everything
-SMD_AVRMod_Serial::SMD_AVRMod_Serial(uint32_t baudrate, uint8_t dataBits,
+SMD_NG_Serial::SMD_NG_Serial(uint32_t baudrate, uint8_t dataBits,
 	uint8_t stopBits, volatile PORT_t* port,
 	uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_init(baudrate, dataBits, stopBits, SER_PARITY_NONE, port, tx_pin_bm, rx_pin_bm);
 }
 
 // This is the main constructor, called by all the others.
-void SMD_AVRMod_Serial::_init(uint32_t baudrate, uint8_t dataBits,
+void SMD_NG_Serial::_init(uint32_t baudrate, uint8_t dataBits,
 	uint8_t stopBits, uint8_t parity,
 	volatile PORT_t* port, uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_baud = baudrate;
@@ -66,7 +66,7 @@ void SMD_AVRMod_Serial::_init(uint32_t baudrate, uint8_t dataBits,
 // -------------------------------------------------------------------------
 // -----  METHODS                                                      -----
 // -------------------------------------------------------------------------
-uint8_t SMD_AVRMod_Serial::begin(void) {
+uint8_t SMD_NG_Serial::begin(void) {
 	uint8_t error = 0;
 	cli();
 	uint16_t baud_setting = (64 * F_CPU + ((16UL * _baud) / 2)) / (16UL * _baud);
@@ -94,11 +94,11 @@ uint8_t SMD_AVRMod_Serial::begin(void) {
 	return error;
 }
 
-bool SMD_AVRMod_Serial::started(void) {
+bool SMD_NG_Serial::started(void) {
 	return _started;
 }
 
-void SMD_AVRMod_Serial::clearInputBuffer(void) {
+void SMD_NG_Serial::clearInputBuffer(void) {
 	recvbuf_read_idx = 0;
 	recvbuf_write_idx = 0;
 }
@@ -106,7 +106,7 @@ void SMD_AVRMod_Serial::clearInputBuffer(void) {
 // -------------------------------------------------------------------------
 // -----  RECEIVING                                                    -----
 // -------------------------------------------------------------------------
-uint8_t SMD_AVRMod_Serial::getByte(void) {
+uint8_t SMD_NG_Serial::getByte(void) {
 	// This doesn't test if there are unread bytes in the buffer.
 	// Always preceed by a test of inWaiting()
 	uint8_t byteVal = recvbuf[recvbuf_read_idx];
@@ -117,12 +117,12 @@ uint8_t SMD_AVRMod_Serial::getByte(void) {
 	return byteVal;
 }
 
-bool SMD_AVRMod_Serial::inWaiting(void) {
+bool SMD_NG_Serial::inWaiting(void) {
 	// return bit_is_set(UCSR0A, RXC0);
 	return recvbuf_write_idx != recvbuf_read_idx;
 }
 
-bool SMD_AVRMod_Serial::readByte(uint8_t* byteVal) {
+bool SMD_NG_Serial::readByte(uint8_t* byteVal) {
 	bool byteRead = false;
 	if (inWaiting()) {
 		byteRead = true;
@@ -138,7 +138,7 @@ bool SMD_AVRMod_Serial::readByte(uint8_t* byteVal) {
 // UNTESTED:
 // Assumes all the bytes are in the RX buffer. It doesn't wait around.
 // Returns number of bytes actually read.
-uint8_t SMD_AVRMod_Serial::readBytes(uint8_t* buf, uint8_t numToRead) {
+uint8_t SMD_NG_Serial::readBytes(uint8_t* buf, uint8_t numToRead) {
 	uint8_t counter = 0;
 	uint8_t inByte = 0;
 	while (readByte(&inByte) && counter < numToRead) {
@@ -148,7 +148,7 @@ uint8_t SMD_AVRMod_Serial::readBytes(uint8_t* buf, uint8_t numToRead) {
 	return counter;
 }
 
-uint8_t SMD_AVRMod_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNewline = true) {
+uint8_t SMD_NG_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNewline = true) {
 	// You must pass a buffer and the size of the buffer. Giving a buffer
 	// size larger than the size of the actual buffer will result in a buffer
 	// overflow and unpredictable results. The length of the string is
@@ -213,7 +213,7 @@ uint8_t SMD_AVRMod_Serial::readLine(char* buffer, size_t bufferSize, bool preser
 	not getting set anywhere, we're just returning default values meaning
 	success. They are in here for future development. **/
 
-bool SMD_AVRMod_Serial::sendByte(uint8_t byteVal) {
+bool SMD_NG_Serial::sendByte(uint8_t byteVal) {
 	bool error = false;
 	// Wait until data register empty
 	while (!(USART0.STATUS & USART_DREIF_bm)) {};
@@ -223,51 +223,51 @@ bool SMD_AVRMod_Serial::sendByte(uint8_t byteVal) {
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::write(const char* string) {
+uint8_t SMD_NG_Serial::write(const char* string) {
 	uint8_t error = _writeStr(string, false);
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::write(const double fnum) {
+uint8_t SMD_NG_Serial::write(const double fnum) {
 	uint8_t error = _writeDouble(fnum, false);
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::write(const int twoByteInt) {
+uint8_t SMD_NG_Serial::write(const int twoByteInt) {
 	uint8_t error = _writeInt16(twoByteInt, false);
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::write(const long longInt) {
+uint8_t SMD_NG_Serial::write(const long longInt) {
 	uint8_t error = _writeLongInt(longInt, false);
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::writeChar(const char ch) {
+uint8_t SMD_NG_Serial::writeChar(const char ch) {
 	char sendChar[1 + sizeof(char)];
 	sprintf(sendChar, "%c", ch);
 	uint8_t error = _writeStr(sendChar, false);
 	return error;
 }
 
-uint8_t SMD_AVRMod_Serial::writeln(const char* string) {
+uint8_t SMD_NG_Serial::writeln(const char* string) {
 	return _writeStr(string, true);
 }
 
-uint8_t SMD_AVRMod_Serial::writeln(const int twoByteInt) {
+uint8_t SMD_NG_Serial::writeln(const int twoByteInt) {
 	return _writeInt16(twoByteInt, true);
 }
 
-uint8_t SMD_AVRMod_Serial::writeln(const long longInt) {
+uint8_t SMD_NG_Serial::writeln(const long longInt) {
 	return _writeLongInt(longInt, true);
 }
 
-uint8_t SMD_AVRMod_Serial::writeln(const double fnum) {
+uint8_t SMD_NG_Serial::writeln(const double fnum) {
 	return _writeDouble(fnum, true);
 }
 
 
-uint8_t SMD_AVRMod_Serial::_writeDouble(const double fnum, bool addReturn = false) {
+uint8_t SMD_NG_Serial::_writeDouble(const double fnum, bool addReturn = false) {
 	uint8_t resultCode = 0;
 	char numStr[30];
 	// see: http://www.atmel.com/webdoc/AVRLibcReferenceManual/group__avr__stdlib_1ga060c998e77fb5fc0d3168b3ce8771d42.html
@@ -276,7 +276,7 @@ uint8_t SMD_AVRMod_Serial::_writeDouble(const double fnum, bool addReturn = fals
 	return resultCode;
 }
 
-uint8_t SMD_AVRMod_Serial::_writeInt16(const int twoByteInt, bool addReturn = false) {
+uint8_t SMD_NG_Serial::_writeInt16(const int twoByteInt, bool addReturn = false) {
 	uint8_t resultCode = 0;
 	char numStr[20];
 	itoa(twoByteInt, numStr, 10);
@@ -285,7 +285,7 @@ uint8_t SMD_AVRMod_Serial::_writeInt16(const int twoByteInt, bool addReturn = fa
 	return resultCode;
 }
 
-uint8_t SMD_AVRMod_Serial::_writeLongInt(const long longInt, bool addReturn = false) {
+uint8_t SMD_NG_Serial::_writeLongInt(const long longInt, bool addReturn = false) {
 	uint8_t resultCode = 0;
 	char numStr[30];
 	ltoa(longInt, numStr, 10);
@@ -294,7 +294,7 @@ uint8_t SMD_AVRMod_Serial::_writeLongInt(const long longInt, bool addReturn = fa
 }
 
 // This is the main function used by the other write() and writeln() methods.
-uint8_t SMD_AVRMod_Serial::_writeStr(const char* string, bool addReturn) {
+uint8_t SMD_NG_Serial::_writeStr(const char* string, bool addReturn) {
 	uint8_t resultCode = 0;
 	if (strlen(string) > 0) {
 		uint8_t i = 0;

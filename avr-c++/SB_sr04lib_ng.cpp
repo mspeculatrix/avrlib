@@ -1,4 +1,4 @@
-#include "SB_sr04lib_avrng.h"
+#include "SB_sr04lib_ng.h"
 
 
 SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo)

@@ -1,4 +1,4 @@
-#include "SB_modlib_avrng.h"
+#include "SB_modulelib_ng.h"
 
 /*------------------------------------------------------------------------------
 ---- PUBLIC METHODS                                                         ----

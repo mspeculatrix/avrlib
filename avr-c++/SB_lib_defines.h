@@ -5,8 +5,8 @@
  * whereas this is meant to be universal.
 */
 
-#ifndef __SMD_SBLIB_DEFINES_H__
-#define __SMD_SBLIB_DEFINES_H__
+#ifndef __SB_LIB_DEFINES_H__
+#define __SB_LIB_DEFINES_H__
 
 
 // MESSAGE TYPES
