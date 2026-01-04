@@ -3,8 +3,8 @@
  * For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
 */
 
-#ifndef __SR04LIB_NG__
-#define __SR04LIB_NG__
+#ifndef __SB_SR04LIB_NG__
+#define __SB_SR04LIB_NG__
 
 // Ensure we have io/sfr/pindefs loaded
 #ifndef   _AVR_IO_H_

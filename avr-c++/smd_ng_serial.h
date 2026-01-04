@@ -11,8 +11,8 @@
 
 */
 
-#ifndef __SMD_SERIAL_AVRNG_H__
-#define __SMD_SERIAL_AVRNG_H__
+#ifndef __SMD_NG_SERIAL_H__
+#define __SMD_NG_SERIAL_H__
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
