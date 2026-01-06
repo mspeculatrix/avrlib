@@ -5,9 +5,11 @@ MCU   = attiny1604			# Microcontroller - choose one
 MCU   = atmega4809
 MCU   = atmega328p
 
-F_CPU = 20000000UL			# Clock speed
+# Clock speed
+F_CPU = 20000000UL
 
-TARGET = SB_Mod_SR04_t1604	# Project/executable name
+# Project/executable name
+TARGET = SB_Mod_SR04_t1604
 
 # ----- PROJECT DEPENDENCIES ---------------------------------------------------
 
@@ -34,7 +36,7 @@ PROGRAMMER_TYPE = atmelice_updi
 PROGRAMMER_ARGS = -P usb -B 125kHz
 
 # For 'modern' AVRs using serial UPDI
-ROGRAMMER_TYPE = serialupdi
+PROGRAMMER_TYPE = serialupdi
 PROGRAMMER_ARGS = -P /dev/ttyUSB0
 
 # ------------------------------------------------------------------------------
