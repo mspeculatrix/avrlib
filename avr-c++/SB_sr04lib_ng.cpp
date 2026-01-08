@@ -1,8 +1,11 @@
 #include "SB_sr04lib_ng.h"
 
 
-SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo)
-	: _port(port), _trigger_pin(trigger), _echo_pin(echo) {
+SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo,
+	PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
+	volatile uint8_t* sbDatCtrl)
+	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, sbDatCtrl),
+	_port(port), _trigger_pin(trigger), _echo_pin(echo) {
 	// Configure TCA0 for normal (count‑up) mode, no PWM
 	// The following just sets the default, but for the sake of completeness...
 	TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_NORMAL_gc;

@@ -16,9 +16,6 @@
 #include <util/delay.h>
 #include <SB_lib_defines.h>
 #include <SB_modulelib_ng.h>
-// #include "app_defines.h"
-
-#define MSG_BUF_LEN 16
 
 #define MIN_ECHO_TIME 400
 #define MAX_ECHO_TIME 23200
@@ -30,16 +27,21 @@
 #define WAIT_UNTIL_LOW(port, pin) do { } while (port->IN & (pin))
 
 
-class SB_SR04 {
+class SB_SR04 : public SensorBusModule {
 
 public:
+	// CONSTRUCTOR
+	SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo,
+		PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
+		volatile uint8_t* sbDatCtrl);
 
-	SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo);
+	// PROPERTIES
 	uint16_t ping(void);
 	uint16_t getLast(void) { return _last_ping; }
 	uint16_t getPrevious(void) { return _previous_ping; }
 
 protected:
+	// PROPERTIES
 	volatile PORT_t* _port;
 	volatile uint8_t _trigger_pin;
 	volatile uint8_t _echo_pin;
