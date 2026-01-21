@@ -1,22 +1,22 @@
-/*
- *
- * Main class and library for SensorBus modules.
- *
- * Uses the timeout counter B (TCB).
- *
- * Requires SBlib_defines.h in same dir
- *
- * To use this you need to externally define some stuff, such as:
- *
- * #define SB_PORT PORTD
- * #define SB_DAT PIN0_bm // Chip Enable (Active Low: /CE)
- * #define SB_CLK PIN1_bm // Output Enable (Active Low: /OE)
- * #define SB_ACT PIN2_bm // Output Enable (Active Low: /OE)
- * #define SB_PORT_INT_VEC PORTD_PORT_vect
- * #define SB_DAT_CTRL PIN0CTRL // only for non-class stuff
- *
- * Global var:
- * bool commRequest = false;
+/* SB_modulelib_ng.h
+
+ Main class and library for SensorBus modules.
+
+ Uses the timeout counter B (TCB).
+
+ Requires SBlib_defines.h in same dir
+
+ To use this you need to externally define some stuff, such as:
+
+ #define SB_PORT PORTD
+ #define SB_DAT PIN0_bm // Chip Enable (Active Low: /CE)
+ #define SB_CLK PIN1_bm // Output Enable (Active Low: /OE)
+ #define SB_ACT PIN2_bm // Output Enable (Active Low: /OE)
+ #define SB_PORT_INT_VEC PORTD_PORT_vect
+ #define SB_DAT_CTRL PIN0CTRL // only for non-class stuff
+
+ Global var:
+ bool commRequest = false;
 */
 
 #ifndef __SB_MODULELIB_NG__
@@ -48,13 +48,16 @@ using namespace SensorBus;
 class SensorBusModule : public SB_Device
 {
 public:
+	// CONSTRUCTOR
 	SensorBusModule(volatile PORT_t* port,
 		uint8_t clkPin_pm, uint8_t actPin_pm, uint8_t datPin_pm,
-		volatile uint8_t* datCtrl);
-	uint8_t sendMessage(uint8_t* msgBuf);
+		PORT_t* datPort, volatile uint8_t* datCtrl);
+
+	// METHODS
+	err_code sendMessage(); // Overwrites parent method
 
 protected:
-	// VARIABLES
+	// PROPERTIES
 	volatile uint8_t _dat;
 	volatile uint8_t* _datCtrl;
 

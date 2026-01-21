@@ -1,3 +1,5 @@
+/* SB_nodelib_ng.h */
+
 #ifndef __SB_NODELIB_NG__
 #define __SB_NODELIB_NG__
 
@@ -16,11 +18,10 @@ class SB_Node : public SB_Device {
 
 public:
 	SB_Node(volatile PORT_t* port, uint8_t clkPin_pm,
-		uint8_t actPin_pm, PORT_t* dat_port);
+		uint8_t actPin_pm, PORT_t* datPort);
 
 protected:
-
-	void _setDefaults(void);	// overloads parent method
+	void _setDefaults(void);	// overrides parent method
 };
 
 #endif

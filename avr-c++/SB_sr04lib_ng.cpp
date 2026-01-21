@@ -1,10 +1,12 @@
+/* SB_sr04lib_ng.cpp */
+
 #include "SB_sr04lib_ng.h"
 
 
 SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo,
 	PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
-	volatile uint8_t* sbDatCtrl)
-	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, sbDatCtrl),
+	PORT_t* datPort, volatile uint8_t* sbDatCtrl)
+	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, datPort, sbDatCtrl),
 	_port(port), _trigger_pin(trigger), _echo_pin(echo) {
 	// Configure TCA0 for normal (count‑up) mode, no PWM
 	// The following just sets the default, but for the sake of completeness...
@@ -51,9 +53,6 @@ uint16_t SB_SR04::ping(void) {
 	sei(); 			// re-enable interrupts
 	return distance;
 }
-
-
-
 
 // For sorting ping values
 // int compare_desc(const void* a, const void* b) {

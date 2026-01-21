@@ -1,6 +1,7 @@
-/*
- * Library for SR04 ultrasonic rangefinder
- * For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
+/* SB_sr04lib_ng.h
+
+Library for SR04 ultrasonic rangefinder
+For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
 */
 
 #ifndef __SB_SR04LIB_NG__
@@ -33,7 +34,7 @@ public:
 	// CONSTRUCTOR
 	SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo,
 		PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
-		volatile uint8_t* sbDatCtrl);
+		PORT_t* datPort, volatile uint8_t* sbDatCtrl);
 
 	// PROPERTIES
 	uint16_t ping(void);

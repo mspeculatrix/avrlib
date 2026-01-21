@@ -1,6 +1,11 @@
+/* SB_devicelib_ng.cpp */
+
 #include "SB_devicelib_ng.h"
+#include "smd_ng_serial.h"
 
 using namespace SensorBus;
+
+extern SMD_NG_Serial serial;
 
 /*******************************************************************************
 *****  PUBLIC                                                              *****
@@ -9,60 +14,99 @@ using namespace SensorBus;
 // CONSTRUCTOR
 SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin_pm,
 	uint8_t actPin_pm, volatile PORT_t* datport)
-	: _port(port), _clk(clkPin_pm), _act(actPin_pm), _dat_port(datport) {
+	: _port(port), _clk(clkPin_pm), _act(actPin_pm), _datPort(datport) {
 
 	// base address of PIN0CTRL, from which we offset to desired pin
-	_datPinCtrlBase = &(_dat_port->PIN0CTRL);
+	_datPinCtrlBase = (volatile uint8_t*)&(_datPort->PIN0CTRL);
+	_clearBuffer(recvMsg, MSG_BUF_LEN);
+	_clearBuffer(sendMsg, MSG_BUF_LEN);
 }
 
-uint8_t SB_Device::recvMessage(uint8_t* msgbuf, uint8_t dat) {
+const char* SB_Device::errMsg(err_code code) {
+	switch (code) {
+		case ERR_NONE:           return "OK";
+		case ERR_SENDMODE_NO_ACK_STROBE:
+			return "Set send: no ack";
+		case ERR_SENDMODE_ACT_NOT_CLEAR:
+			return "Set send: Bus busy";
+		case ERR_GETBYTE_TO_LO:  return "_getByte TO low";
+		case ERR_GETBYTE_TO_HI:  return "_getByte TO high";
+		default:                 return "Undefined error";
+	}
+}
+
+err_code SB_Device::recvMessage(uint8_t dat) {
 	_setReceiveMode(dat);
-	uint8_t error = 0;
-	uint8_t buf_idx = 0;
-	msgbuf[0] = _getByte(dat, &error);
-	if (error == 0) {
-		buf_idx++;
-		// The first received byte denotes the entire message length
-		while (buf_idx < msgbuf[0]) {
-			msgbuf[buf_idx] = _getByte(dat, &error);
-			if (error > 0) break;
-			buf_idx++;
+	err_code error = ERR_NONE;
+	uint8_t bufIdx = 0;
+	// The first received byte denotes the entire message length
+	recvMsg[0] = _getByte(dat, error);
+	if (error == ERR_NONE) {
+		bufIdx++;
+		while (bufIdx < recvMsg[0]) {
+			recvMsg[bufIdx] = _getByte(dat, error);
+			if (error > ERR_NONE) break;
+			bufIdx++;
 		}
 	}
-
+	_delay_us(SETTLE_DELAY); 	// Let bus settle, interrupts re-arm
 	_setDefaults();
 	return error;
 }
 
-uint8_t SB_Device::sendMessage(uint8_t* msgbuf, uint8_t dat) {
-	uint8_t error = 0;
-	_setSendMode(dat);
-
-
-
+err_code SB_Device::sendMessage(uint8_t dat) {
+	err_code error = _setSendMode(dat);
+	if (error == 0) {
+		uint8_t msgLen = sendMsg[0];
+		_delay_us(START_TRANSMISSION_PAUSE);
+		// EXCHANGE LOOP
+		for (uint8_t i = 0; i < msgLen; i++) { 			// loop through bytes
+			for (uint8_t bit = 0; bit < 8; bit++) { 	// loop through bits
+				if (sendMsg[i] & (1 << bit)) {
+					_datPort->OUTSET = dat;
+				} else {
+					_datPort->OUTCLR = dat;
+				}
+				_delay_us(BIT_PAUSE);
+				_port->OUTCLR = _clk;	// Take clock low
+				_delay_us(BIT_PAUSE);
+				_port->OUTSET = _clk;	// Take clock high
+			}
+			_delay_us(BYTE_PAUSE);
+		}
+		// Clean up
+		_datPort->DIRCLR = dat; 	// Release to input
+		_delay_us(SETTLE_DELAY);	// Settle time
+	}
 	_setDefaults();
 	return error;
 }
-
 
 /*******************************************************************************
 *****  PROTECTED                                                           *****
 *******************************************************************************/
 
-uint8_t SB_Device::_getByte(uint8_t dat, uint8_t* error) {
+void SB_Device::_clearBuffer(uint8_t* buf, uint8_t buf_len) {
+	for (uint8_t i = 0; i < buf_len; i++) {
+		buf[i] = 0;
+	}
+}
+
+// Receives 8 bits of data, LSB first.
+uint8_t SB_Device::_getByte(uint8_t dat, err_code& error) {
 	uint8_t byte_val = 0;
 	for (uint8_t i = 0; i < 8; i++) {
-		bool clk_low_OK = _waitForState(_port, _clk, LOW, STD_TO_TICKS, STD_TO_LOOPS);
+		bool clk_low_OK = _waitForState(_port, _clk, LOW);
 		if (clk_low_OK) {
-			uint8_t bit_val = _dat_port->IN & (1 << dat);
+			uint8_t bit_val = _datPort->IN & dat;
 			byte_val |= (bit_val << i);
-			bool clk_hi_OK = _waitForState(_port, _clk, HIGH, STD_TO_TICKS, STD_TO_LOOPS);
+			bool clk_hi_OK = _waitForState(_port, _clk, HIGH);
 			if (!clk_hi_OK) {
-				*error = (uint8_t)ERR_GETBYTE_TO_HI;
+				error = ERR_GETBYTE_TO_HI;
 				break;
 			}
 		} else {
-			*error = (uint8_t)ERR_GETBYTE_TO_LO;
+			error = ERR_GETBYTE_TO_LO;
 			break;
 		}
 	}
@@ -70,48 +114,47 @@ uint8_t SB_Device::_getByte(uint8_t dat, uint8_t* error) {
 }
 
 void SB_Device::_setReceiveMode(uint8_t dat) {
-	cli();						// Disable interrupts
-	_port->OUTSET = _act;		// Set SB_ACT to HIGH
-	_port->DIRSET = _act;		// Set SB_ACT to OUTPUT
-	_port->OUTCLR = _act;		// Set SB_ACT to LOW
-	_dat_port->OUTSET = dat;	// Set dat pin HIGH
-	_dat_port->DIRSET = dat;	// Set dat pin to OUTPUT
-	_strobeLine(_dat_port, dat);
-	_dat_port->DIRCLR = dat;	// Set dat pin to INPUT
+	// Wait for the dat signal to be released by remote device
+	_waitForState(_datPort, dat, HIGH, STD_TO_TICKS, STD_TO_LOOPS);
+	_datPort->OUTSET = dat;	// Set dat pin HIGH when it gets switched to OUTPUT
+	_datPort->DIRSET = dat;	// Set dat pin to OUTPUT
+	_delay_us(ACK_PAUSE);
+	_strobeLine(_datPort, dat);
+	_datPort->DIRCLR = dat;				// Set dat pin to INPUT
 }
 
-uint8_t SB_Device::_setSendMode(uint8_t dat) {
-	uint8_t error = 0;
-	bool clearToSend = _waitForState(_port, _act, LOW,
-		STD_TO_TICKS, STD_TO_LOOPS);
+err_code SB_Device::_setSendMode(uint8_t dat) {
+	err_code error = ERR_NONE;
+	bool clearToSend = _waitForState(_port, _act, HIGH);
 	if (clearToSend) {
-		cli();		// Disable interrupts
-		_port->OUTSET = _clk;
-		_port->DIRSET = _clk;
-		_dat_port->OUTSET = dat;
-		_dat_port->DIRSET = dat;
-		_strobeLine(_dat_port, dat);
-		_dat_port->DIRCLR = dat;
-		bool dat_low = _waitForState(_dat_port, dat, LOW,
-			STD_TO_TICKS, STD_TO_LOOPS);
-		if (!dat_low) {
-			error = ERR_DAT_LOW;
+		_port->OUTSET = _clk;			// Set SB_CLK to HIGH
+		_port->OUTCLR = _act;			// Set SB_ACT to LOW
+		_port->DIRSET = _clk | _act;	// Set SB_CLK & SB_ACT as OUTPUTS
+		_datPort->OUTSET = dat;			// Set DAT to HIGH
+		_datPort->DIRSET = dat;			// Set DAT to OUTPUT
+		_strobeLine(_datPort, dat);		// Strobe DAT line
+		_datPort->DIRCLR = dat;			// Set DAT to INPUT
+		bool dat_ack = _waitForState(_datPort, dat, LOW); // Wait for ACK strobe
+		if (!dat_ack) {
+			error = ERR_SENDMODE_NO_ACK_STROBE;
+		} else {
+			_datPort->OUTSET = dat;		// Ensure DAT is HIGH
+			_datPort->DIRSET = dat;		// Set DAT to OUTPUT
 		}
-
 	} else {
-		error = ERR_ACT_CLEAR;
+		error = ERR_SENDMODE_ACT_NOT_CLEAR;
 	}
 	return error;
 }
 
 void SB_Device::_strobeLine(volatile PORT_t* port, uint8_t line) {
-	port->OUTCLR = line;
-	_delay_us(STROBE_DURATION);
-	port->OUTSET = line;
+	port->OUTCLR = line;				// Take line LOW
+	_delay_us(STROBE_DURATION);			// Hold for a moment
+	port->OUTSET = line;				// Take line high
 }
 
 void SB_Device::_timeoutCounterInit(void) {
-	TCB0.CTRLA = 0;	// Disable timer before configuration
+	TCB0.CTRLA = 0;						// Disable timer before configuration
 	TCB0.CTRLA = TCB_CLKSEL_CLKDIV2_gc;	// Select clock source
 	TCB0.CTRLB = TCB_CNTMODE_INT_gc;	// periodic interrupts, ints disabled
 	TCB0.INTFLAGS = TCB_CAPT_bm;		// Clear any pending interrupt flag
@@ -128,28 +171,34 @@ void SB_Device::_timeoutCounterStop(void) {
 	TCB0.CTRLA &= ~TCB_ENABLE_bm;
 }
 
+// Wrapper that calls the main function with the default values for
+// timeoutTicks and maxLoops
+bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin, uint8_t state) {
+	return _waitForState(port, pin, state, STD_TO_TICKS, STD_TO_LOOPS);
+}
+
 bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
-	uint8_t state, uint16_t timeoutTicks, uint8_t max_loops) {
+	uint8_t state, uint16_t timeoutTicks, uint8_t maxLoops) {
 	bool stateAchieved = false;
-	bool max_loop_limit = false;
-	uint8_t loop_count = 0;
+	bool maxLoopLimit = false;
+	uint8_t loopCount = 0;
 	_timeoutCounterStart(timeoutTicks);
-	while (!stateAchieved && !max_loop_limit) {
-		bool timed_out = false;
-		while (!stateAchieved && !timed_out) {
+	while (!stateAchieved && !maxLoopLimit) {
+		bool timedOut = false;
+		while (!stateAchieved && !timedOut) {
 			uint8_t pinState = port->IN & pin;
 			if ((state == HIGH && pinState) || (state == LOW && !pinState)) {
 				stateAchieved = true;
 			} else if (TCB0.INTFLAGS & TCB_CAPT_bm) {	// overflow happened
 				TCB0.INTFLAGS = TCB_CAPT_bm;			// clear flag
-				timed_out = true;
+				timedOut = true;
 			}
 		}
 		if (!stateAchieved) {
-			if (loop_count >= max_loops) {
-				max_loop_limit = true;
+			if (loopCount >= maxLoops) {
+				maxLoopLimit = true;
 			} else {
-				loop_count++;
+				loopCount++;
 			}
 		}
 	}
@@ -158,8 +207,10 @@ bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
 }
 
 /**
- * Will get overloaded by child class.
+ * Will get overridden by child classes, probably. We'll do the minimum
+ * necessary here as a placeholder.
  */
 void SB_Device::_setDefaults(void) {
-	_port->DIRCLR = _clk | _act; // set to inputs
+	_port->OUTSET = _clk | _act;	// Pull high by default
+	_port->DIRCLR = _clk | _act; 	// Set to inputs
 }
