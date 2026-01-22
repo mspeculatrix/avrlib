@@ -1,6 +1,6 @@
 /* SB_devicelib_ng.h
 
-Common library for both Modules and Nodes.
+Common SensorBus device library for Modules and Nodes.
 */
 
 #ifndef __SB_DEVICELIB_NG__
