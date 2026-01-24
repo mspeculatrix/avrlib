@@ -1,6 +1,8 @@
 #ifndef __SB_SERVOLIB_NG__
 #define __SB_SERVOLIB_NG__
 
+/* *** WORK IN PROGRESS *** */
+
 // Ensure we have io/sfr/pindefs loaded
 #ifndef   _AVR_IO_H_
 #include  <avr/io.h>

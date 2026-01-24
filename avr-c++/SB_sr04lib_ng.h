@@ -2,6 +2,9 @@
 
 Library for SR04 ultrasonic rangefinder
 For use with Modern ATmega and ATtiny microcontrollers (0-, 1- and 2-Series).
+
+Uses timer TCA0 for measuring ping timing.
+
 */
 
 #ifndef __SB_SR04LIB_NG__

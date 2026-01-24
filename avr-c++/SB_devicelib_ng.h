@@ -11,8 +11,8 @@ The main program needs to define certain ports and pins eg:
 #define SB_ACT  		PIN1_bm
 #define SB_CLK  		PIN3_bm
 #define SB_DATPORT 		PORTA
-#define SB_DAT 			PIN2_bm		// for modules only
-#define SB_DAT_CTRL		PIN2CTRL	// for modules only
+#define SB_DAT 			PIN2_bm			// for modules only
+#define SB_DAT_CTRL		PIN2CTRL		// for modules only
 #define SB_DAT_ISR_VEC 	PORTD_PORT_vect
 
 And it should contain this ISR function (replace the `node.` in this
@@ -22,6 +22,9 @@ ISR(DAT_ISR_VECTOR) {
 	node.commRequestRcvd = SB_DATPORT.INTFLAGS;	// set to bits triggering interrupt(s)
 	SB_DATPORT.INTFLAGS = node.commRequestRcvd;	// clear flags
 }
+
+Uses timer TCB0 for timeout counter.
+
 */
 
 #ifndef __SB_DEVICELIB_NG__
