@@ -5,7 +5,7 @@
 
 using namespace SensorBus;
 
-extern SMD_NG_Serial serial;
+extern SMD_NG_Serial serial;	// Intended for debugging only
 
 /*******************************************************************************
 *****  PUBLIC                                                              *****
@@ -18,8 +18,8 @@ SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin_pm,
 
 	// base address of PIN0CTRL, from which we offset to desired pin
 	_datPinCtrlBase = (volatile uint8_t*)&(_datPort->PIN0CTRL);
-	_clearBuffer(recvMsg, MSG_BUF_LEN);
-	_clearBuffer(sendMsg, MSG_BUF_LEN);
+	_clearBuffer(recvMsgBuf, MSG_BUF_LEN);
+	_clearBuffer(sendMsgBuf, MSG_BUF_LEN);
 }
 
 const char* SB_Device::errMsg(err_code code) {
@@ -40,15 +40,16 @@ err_code SB_Device::recvMessage(uint8_t dat) {
 	err_code error = ERR_NONE;
 	uint8_t bufIdx = 0;
 	// The first received byte denotes the entire message length
-	recvMsg[0] = _getByte(dat, error);
+	recvMsgBuf[0] = _getByte(dat, error);
 	if (error == ERR_NONE) {
 		bufIdx++;
-		while (bufIdx < recvMsg[0]) {
-			recvMsg[bufIdx] = _getByte(dat, error);
+		while (bufIdx < recvMsgBuf[0]) {
+			recvMsgBuf[bufIdx] = _getByte(dat, error);
 			if (error > ERR_NONE) break;
 			bufIdx++;
 		}
 	}
+	// printBuf(recvMsgBuf);
 	_delay_us(SETTLE_DELAY); 	// Let bus settle, interrupts re-arm
 	_setDefaults();
 	return error;
@@ -57,12 +58,13 @@ err_code SB_Device::recvMessage(uint8_t dat) {
 err_code SB_Device::sendMessage(uint8_t dat) {
 	err_code error = _setSendMode(dat);
 	if (error == 0) {
-		uint8_t msgLen = sendMsg[0];
+		uint8_t msgLen = sendMsgBuf[0];
 		_delay_us(START_TRANSMISSION_PAUSE);
 		// EXCHANGE LOOP
 		for (uint8_t i = 0; i < msgLen; i++) { 			// loop through bytes
+			// serial.writeln(sendMsgBuf[i]);
 			for (uint8_t bit = 0; bit < 8; bit++) { 	// loop through bits
-				if (sendMsg[i] & (1 << bit)) {
+				if (sendMsgBuf[i] & (1 << bit)) {
 					_datPort->OUTSET = dat;
 				} else {
 					_datPort->OUTCLR = dat;
@@ -97,9 +99,12 @@ uint8_t SB_Device::_getByte(uint8_t dat, err_code& error) {
 	uint8_t byte_val = 0;
 	for (uint8_t i = 0; i < 8; i++) {
 		bool clk_low_OK = _waitForState(_port, _clk, LOW);
+		// Very slight pause to ensure we're not reading right on the edge
+		_delay_us(READ_PAUSE);
 		if (clk_low_OK) {
-			uint8_t bit_val = _datPort->IN & dat;
-			byte_val |= (bit_val << i);
+			if (_datPort->IN & dat) {
+				byte_val |= (1 << i);
+			}
 			bool clk_hi_OK = _waitForState(_port, _clk, HIGH);
 			if (!clk_hi_OK) {
 				error = ERR_GETBYTE_TO_HI;
@@ -213,4 +218,23 @@ bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
 void SB_Device::_setDefaults(void) {
 	_port->OUTSET = _clk | _act;	// Pull high by default
 	_port->DIRCLR = _clk | _act; 	// Set to inputs
+}
+
+
+/* ***** FOR DEBUGGING ***** */
+// Intended for debugging only
+void SB_Device::printBuf(uint8_t* buf) {
+	for (uint8_t i = 0; i < MSG_BUF_LEN; i++) {
+		serial.write(buf[i]);
+		serial.write(" ");
+	}
+	serial.writeln(" ");
+}
+
+void SB_Device::printMsg(uint8_t* buf) {
+	for (uint8_t i = 0; i < buf[0]; i++) {
+		serial.write(buf[i]);
+		serial.write(" ");
+	}
+	serial.writeln(" ");
 }

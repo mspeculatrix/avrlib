@@ -1,6 +1,27 @@
 /* SB_devicelib_ng.h
 
 Common SensorBus device library for Modules and Nodes.
+
+Devices need to use interrupts to respond to incoming communication requests.
+
+The main program needs to define certain ports and pins eg:
+
+// SensorBus ports, pins, ISR vector
+#define SB_PORT 		PORTA
+#define SB_ACT  		PIN1_bm
+#define SB_CLK  		PIN3_bm
+#define SB_DATPORT 		PORTA
+#define SB_DAT 			PIN2_bm		// for modules only
+#define SB_DAT_CTRL		PIN2CTRL	// for modules only
+#define SB_DAT_ISR_VEC 	PORTD_PORT_vect
+
+And it should contain this ISR function (replace the `node.` in this
+example with the object name):
+
+ISR(DAT_ISR_VECTOR) {
+	node.commRequestRcvd = SB_DATPORT.INTFLAGS;	// set to bits triggering interrupt(s)
+	SB_DATPORT.INTFLAGS = node.commRequestRcvd;	// clear flags
+}
 */
 
 #ifndef __SB_DEVICELIB_NG__
@@ -24,6 +45,7 @@ namespace SensorBus {
 	// (DAT) it's important the strobes don't overlap.
 	const uint16_t START_TRANSMISSION_PAUSE = 5; 	// us
 	const uint8_t STROBE_DURATION = 10; 			// us
+	const uint8_t READ_PAUSE = STROBE_DURATION / 4;	// us
 	const uint8_t ACK_PAUSE = STROBE_DURATION + 5;	// us
 	const uint8_t BIT_PAUSE = 50; 					// us
 	const uint8_t BYTE_PAUSE = 50; 					// us
@@ -31,7 +53,7 @@ namespace SensorBus {
 
 	// For timeouts - standard values
 	const uint16_t STD_TO_TICKS = 0xFFFF;	// Max number of ticks in each loop
-	const uint8_t STD_TO_LOOPS = 5;			// Max number of loops
+	const uint8_t STD_TO_LOOPS = 10;			// Max number of loops
 
 	typedef enum errcodes {
 		ERR_NONE = 0,
@@ -49,8 +71,12 @@ namespace SensorBus {
 			volatile PORT_t* datport);
 
 		const char* errMsg(err_code code);
-		uint8_t recvMsg[MSG_BUF_LEN];
-		uint8_t sendMsg[MSG_BUF_LEN];
+		volatile int8_t commRequestRcvd = -1;
+		uint8_t recvMsgBuf[MSG_BUF_LEN];
+		uint8_t sendMsgBuf[MSG_BUF_LEN];
+
+		void printBuf(uint8_t* buf);
+		void printMsg(uint8_t* buf);
 
 		err_code recvMessage(uint8_t dat);
 		err_code sendMessage(uint8_t dat);

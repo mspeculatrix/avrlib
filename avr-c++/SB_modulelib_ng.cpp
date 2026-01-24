@@ -17,6 +17,7 @@ SensorBusModule::SensorBusModule(volatile PORT_t* port,
 }
 
 err_code SensorBusModule::sendMessage() {
+	// Use parent class method but providing _dat
 	err_code error = SB_Device::sendMessage(_dat);
 	return error;
 }
@@ -34,5 +35,5 @@ void SensorBusModule::_setDefaults(void) {
 	_datPort->OUTSET = _dat;		// Set HIGH as default
 	_datPort->DIRCLR = _dat;		// Set to INPUT
 	// Enable interrupts on data line
-	_datPinCtrlBase[*_datCtrl] = PORT_PULLUPEN_bm | PORT_ISC_FALLING_gc;
+	*_datCtrl = PORT_PULLUPEN_bm | PORT_ISC_FALLING_gc;
 }
