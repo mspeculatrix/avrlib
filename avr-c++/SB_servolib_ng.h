@@ -18,7 +18,7 @@ class SB_Servo : public SensorBusModule {
 
 public:
 	// CONSTRUCTOR
-	SB_Servo(PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
+	SB_Servo(PORT_t* servoPort, uint8_t servoPin, PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
 		PORT_t* datPort, volatile uint8_t* sbDatCtrl);
 
 	void begin(void);

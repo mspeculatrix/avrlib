@@ -31,7 +31,7 @@ Uses timer TCA0 for measuring ping timing.
 #define WAIT_UNTIL_LOW(port, pin) do { } while (port->IN & (pin))
 
 
-class SB_SR04 : public SensorBusModule {
+class SB_SR04 : public SB_Module {
 
 public:
 	// CONSTRUCTOR

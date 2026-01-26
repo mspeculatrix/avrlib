@@ -6,7 +6,7 @@
 SB_SR04::SB_SR04(PORT_t* port, uint8_t trigger, uint8_t echo,
 	PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
 	PORT_t* datPort, volatile uint8_t* sbDatCtrl)
-	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, datPort, sbDatCtrl),
+	: SB_Module(sbPort, sbClk, sbAct, sbDat, datPort, sbDatCtrl),
 	_port(port), _trigger_pin(trigger), _echo_pin(echo) {
 	// Configure TCA0 for normal (count‑up) mode, no PWM
 	// The following just sets the default, but for the sake of completeness...

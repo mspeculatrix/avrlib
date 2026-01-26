@@ -5,7 +5,7 @@
 /*------------------------------------------------------------------------------
 ---- PUBLIC METHODS                                                         ----
 ------------------------------------------------------------------------------*/
-SensorBusModule::SensorBusModule(volatile PORT_t* port,
+SB_Module::SB_Module(volatile PORT_t* port,
 	uint8_t clkPin_pm, uint8_t actPin_pm,
 	uint8_t datPin_pm, PORT_t* datPort, volatile uint8_t* datCtrl)
 	: SB_Device(port, clkPin_pm, actPin_pm, datPort), // call parent constructor
@@ -16,7 +16,7 @@ SensorBusModule::SensorBusModule(volatile PORT_t* port,
 	_timeoutCounterInit();
 }
 
-err_code SensorBusModule::sendMessage() {
+err_code SB_Module::sendMessage() {
 	// Use parent class method but providing _dat
 	err_code error = SB_Device::sendMessage(_dat);
 	return error;
@@ -29,7 +29,7 @@ err_code SensorBusModule::sendMessage() {
 /**
  * Overrides parent method
  */
-void SensorBusModule::_setDefaults(void) {
+void SB_Module::_setDefaults(void) {
 	_port->OUTSET = _clk | _act; 	// Set to HIGH
 	_port->DIRCLR = _clk | _act; 	// Set to INPUTs
 	_datPort->OUTSET = _dat;		// Set HIGH as default

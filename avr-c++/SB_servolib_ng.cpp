@@ -3,12 +3,11 @@
 #include "SB_servolib_ng.h"
 
 // CONSTRUCTOR
-SB_Servo::SB_Servo(PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
+SB_Servo::SB_Servo(PORT_t* servoPort, uint8_t servoPin, PORT_t* sbPort, uint8_t sbClk, uint8_t sbAct, uint8_t sbDat,
 	PORT_t* datPort, volatile uint8_t* sbDatCtrl)
-	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, datPort, sbDatCtrl) {
+	: SensorBusModule(sbPort, sbClk, sbAct, sbDat, datPort, sbDatCtrl),
+	_servoPort(servoPort), _servoPin(servoPin) {
 
-	_servoPort = &PORTA;
-	_servoPin = PIN3_bm;
 }
 
 void SB_Servo::begin(void) {

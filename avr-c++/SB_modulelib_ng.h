@@ -45,11 +45,11 @@ ISR(PORTD_PORT_vect) {
 
 using namespace SensorBus;
 
-class SensorBusModule : public SB_Device
+class SB_Module : public SB_Device
 {
 public:
 	// CONSTRUCTOR
-	SensorBusModule(volatile PORT_t* port,
+	SB_Module(volatile PORT_t* port,
 		uint8_t clkPin_pm, uint8_t actPin_pm, uint8_t datPin_pm,
 		PORT_t* datPort, volatile uint8_t* datCtrl);
 

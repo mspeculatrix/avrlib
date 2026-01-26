@@ -36,7 +36,7 @@ const char* SB_Device::errMsg(err_code code) {
 }
 
 err_code SB_Device::recvMessage(uint8_t dat) {
-	_setReceiveMode(dat);
+	_setReceiveMode(dat);			// Sends acknowledge strobe & configs pins
 	err_code error = ERR_NONE;
 	uint8_t bufIdx = 0;
 	// The first received byte denotes the entire message length
@@ -121,8 +121,8 @@ uint8_t SB_Device::_getByte(uint8_t dat, err_code& error) {
 void SB_Device::_setReceiveMode(uint8_t dat) {
 	// Wait for the dat signal to be released by remote device
 	_waitForState(_datPort, dat, HIGH, STD_TO_TICKS, STD_TO_LOOPS);
-	_datPort->OUTSET = dat;	// Set dat pin HIGH when it gets switched to OUTPUT
-	_datPort->DIRSET = dat;	// Set dat pin to OUTPUT
+	_datPort->OUTSET = dat;		// Ensure dat pin HIGH when switched to OUTPUT
+	_datPort->DIRSET = dat;		// Set dat pin to OUTPUT
 	_delay_us(ACK_PAUSE);
 	_strobeLine(_datPort, dat);
 	_datPort->DIRCLR = dat;				// Set dat pin to INPUT
