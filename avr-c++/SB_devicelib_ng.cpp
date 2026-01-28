@@ -31,6 +31,7 @@ const char* SB_Device::errMsg(err_code code) {
 			return "Set send: Bus busy";
 		case ERR_GETBYTE_TO_LO:  return "_getByte TO low";
 		case ERR_GETBYTE_TO_HI:  return "_getByte TO high";
+		case ERR_UNKNOWN_DEVICE: return "Unknown device";
 		default:                 return "Undefined error";
 	}
 }

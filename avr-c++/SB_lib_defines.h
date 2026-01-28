@@ -12,5 +12,6 @@
 // MESSAGE TYPES
 
 #define SBMSG_USONIC_DATA_US 10 	// Ultrasonic sensor data
+#define SBMSG_SET_PARAM 20	// msg from node to module, set a parameter
 
 #endif
