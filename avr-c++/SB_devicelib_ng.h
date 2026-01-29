@@ -106,6 +106,6 @@ namespace SensorBus {
 			uint16_t timeoutTicks, uint8_t maxLoops);
 	};
 
-} // namespace SerialBus
+} // namespace SensorBus
 
 #endif
