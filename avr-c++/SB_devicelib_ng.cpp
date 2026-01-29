@@ -18,21 +18,21 @@ SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin_pm,
 
 	// base address of PIN0CTRL, from which we offset to desired pin
 	_datPinCtrlBase = (volatile uint8_t*)&(_datPort->PIN0CTRL);
+	_maxSendRetries = MAX_SEND_RETRIES_DFL;
 	_clearBuffer(recvMsgBuf, MSG_BUF_LEN);
 	_clearBuffer(sendMsgBuf, MSG_BUF_LEN);
 }
 
 const char* SB_Device::errMsg(err_code code) {
 	switch (code) {
-		case ERR_NONE:           return "OK";
-		case ERR_SENDMODE_NO_ACK_STROBE:
-			return "Set send: no ack";
-		case ERR_SENDMODE_ACT_NOT_CLEAR:
-			return "Set send: Bus busy";
-		case ERR_GETBYTE_TO_LO:  return "_getByte TO low";
-		case ERR_GETBYTE_TO_HI:  return "_getByte TO high";
-		case ERR_UNKNOWN_DEVICE: return "Unknown device";
-		default:                 return "Undefined error";
+		case UNDEFINED:						return "Undefined state";
+		case ERR_NONE:						return "OK";
+		case ERR_SENDMODE_NO_ACK_STROBE:	return "Set send: no ack";
+		case ERR_SENDMODE_ACT_NOT_CLEAR:	return "Set send: Bus busy";
+		case ERR_GETBYTE_TO_LO:				return "_getByte TO low";
+		case ERR_GETBYTE_TO_HI:				return "_getByte TO high";
+		case ERR_UNKNOWN_DEVICE:			return "Unknown device";
+		default:							return "Undefined error";
 	}
 }
 
@@ -57,32 +57,42 @@ err_code SB_Device::recvMessage(uint8_t dat) {
 }
 
 err_code SB_Device::sendMessage(uint8_t dat) {
-	err_code error = _setSendMode(dat);
-	if (error == 0) {
-		uint8_t msgLen = sendMsgBuf[0];
-		_delay_us(START_TRANSMISSION_PAUSE);
-		// EXCHANGE LOOP
-		for (uint8_t i = 0; i < msgLen; i++) { 			// loop through bytes
-			// serial.writeln(sendMsgBuf[i]);
-			for (uint8_t bit = 0; bit < 8; bit++) { 	// loop through bits
-				if (sendMsgBuf[i] & (1 << bit)) {
-					_datPort->OUTSET = dat;
-				} else {
-					_datPort->OUTCLR = dat;
+	uint8_t tries = 0;
+	err_code error = UNDEFINED;
+	while (tries < _maxSendRetries && error != ERR_NONE) {
+		serial.write(".");
+		error = _setSendMode(dat);
+		if (error == 0) {
+			uint8_t msgLen = sendMsgBuf[0];
+			_delay_us(START_TRANSMISSION_PAUSE);
+			// EXCHANGE LOOP
+			for (uint8_t i = 0; i < msgLen; i++) { 			// loop through bytes
+				// serial.writeln(sendMsgBuf[i]);
+				for (uint8_t bit = 0; bit < 8; bit++) { 	// loop through bits
+					if (sendMsgBuf[i] & (1 << bit)) {
+						_datPort->OUTSET = dat;
+					} else {
+						_datPort->OUTCLR = dat;
+					}
+					_delay_us(BIT_PAUSE);
+					_port->OUTCLR = _clk;	// Take clock low
+					_delay_us(BIT_PAUSE);
+					_port->OUTSET = _clk;	// Take clock high
 				}
-				_delay_us(BIT_PAUSE);
-				_port->OUTCLR = _clk;	// Take clock low
-				_delay_us(BIT_PAUSE);
-				_port->OUTSET = _clk;	// Take clock high
+				_delay_us(BYTE_PAUSE);
 			}
-			_delay_us(BYTE_PAUSE);
+			// Clean up
+			_datPort->DIRCLR = dat; 	// Release to input
+			_delay_us(SETTLE_DELAY);	// Settle time
 		}
-		// Clean up
-		_datPort->DIRCLR = dat; 	// Release to input
-		_delay_us(SETTLE_DELAY);	// Settle time
+		tries++;
+		_setDefaults();
 	}
-	_setDefaults();
 	return error;
+}
+
+void SB_Device::setMaxSendRetries(uint8_t retries) {
+	_maxSendRetries = retries;
 }
 
 /*******************************************************************************

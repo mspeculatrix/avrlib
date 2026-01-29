@@ -46,6 +46,7 @@ namespace SensorBus {
 	// a remote device. It's how long the receiver should wait before sending
 	// back an acknowledgement strobe. As both strobes use the same signal
 	// (DAT) it's important the strobes don't overlap.
+	const uint8_t MAX_SEND_RETRIES_DFL = 3;
 	const uint16_t START_TRANSMISSION_PAUSE = 5; 	// us
 	const uint8_t STROBE_DURATION = 10; 			// us
 	const uint8_t READ_PAUSE = STROBE_DURATION / 4;	// us
@@ -59,6 +60,7 @@ namespace SensorBus {
 	const uint8_t STD_TO_LOOPS = 10;			// Max number of loops
 
 	typedef enum errcodes {
+		UNDEFINED = -1,
 		ERR_NONE = 0,
 		ERR_SENDMODE_ACT_NOT_CLEAR = 10,
 		ERR_SENDMODE_NO_ACK_STROBE,
@@ -78,7 +80,7 @@ namespace SensorBus {
 		volatile int8_t commRequestRcvd = -1;
 		uint8_t recvMsgBuf[MSG_BUF_LEN];
 		uint8_t sendMsgBuf[MSG_BUF_LEN];
-
+		void setMaxSendRetries(uint8_t retries);
 		void printBuf(uint8_t* buf);
 		void printMsg(uint8_t* buf);
 
@@ -91,6 +93,7 @@ namespace SensorBus {
 		volatile uint8_t _act;
 		volatile PORT_t* _datPort;
 		volatile uint8_t* _datPinCtrlBase;
+		volatile uint8_t _maxSendRetries;
 
 		void _clearBuffer(uint8_t* buf, uint8_t buf_len);
 		uint8_t _getByte(uint8_t dat, err_code& error);
