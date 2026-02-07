@@ -59,9 +59,10 @@ namespace SB_Servo {
 		// Calculation for 20MHz clock with 64 Prescaler:
 		// Period = 20,000,000 / 64 / 50Hz = 6250
 		const uint16_t _PERIOD_20MS = 6250;
-		// Pulse widths in number of ticks - default values
-		const uint16_t _TICKS_MIN_DFL = 170; // ~0.55ms (0 degrees)
-		const uint16_t _TICKS_MAX_DFL = 745; // ~2.45ms (180 degrees)
+		// Pulse widths in number of ticks - default values for most common
+		// 180deg servos.
+		const uint16_t _TICKS_MIN_DFL = 313; // ~1ms (0 degrees)
+		const uint16_t _TICKS_MAX_DFL = 625; // ~2ms (180 degrees)
 
 		// The minimum and maximum acceptable values for the angle. We're
 		// assuming a standard servo capable of 180 degrees, but it might be

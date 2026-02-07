@@ -11,10 +11,16 @@ extern SMD_NG_Serial serial;	// Intended for debugging only
 *****  PUBLIC                                                              *****
 *******************************************************************************/
 
-// CONSTRUCTOR
-SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin_pm,
-	uint8_t actPin_pm, volatile PORT_t* datport)
-	: _port(port), _clk(clkPin_pm), _act(actPin_pm), _datPort(datport) {
+/**
+ * @brief Constructor
+ * @param port Pointer to the port used for SensorBus
+ * @param clkPin pin bitmask for SB_CLK signal
+ * @param actPin pin bitmask for SB_ACT signal
+ * @param datPort Pointer to the port used for the SensorBus DAT signal
+*/
+SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin,
+	uint8_t actPin, volatile PORT_t* datport)
+	: _port(port), _clk(clkPin), _act(actPin), _datPort(datport) {
 
 	// base address of PIN0CTRL, from which we offset to desired pin
 	_datPinCtrlBase = (volatile uint8_t*)&(_datPort->PIN0CTRL);
@@ -23,6 +29,11 @@ SB_Device::SB_Device(volatile PORT_t* port, uint8_t clkPin_pm,
 	_clearBuffer(sendMsgBuf, MSG_BUF_LEN);
 }
 
+/**
+ * @brief Get a message corresponding to an error code
+ * @param err_code integer error code
+ * @return string literal with error message
+ */
 const char* SB_Device::errMsg(err_code code) {
 	switch (code) {
 		case UNDEFINED:						return "Undefined state";
@@ -32,10 +43,15 @@ const char* SB_Device::errMsg(err_code code) {
 		case ERR_GETBYTE_TO_LO:				return "_getByte TO low";
 		case ERR_GETBYTE_TO_HI:				return "_getByte TO high";
 		case ERR_UNKNOWN_DEVICE:			return "Unknown device";
-		default:							return "Undefined error";
+		default:							return "Unspecified error";
 	}
 }
 
+/**
+ * @brief Receive message into recvMsgBuf across SensorBus
+ * @param dat uint8_t pin bitmask for DAT line
+ * @return err_code integer error code
+ */
 err_code SB_Device::recvMessage(uint8_t dat) {
 	_setReceiveMode(dat);			// Sends acknowledge strobe & configs pins
 	err_code error = ERR_NONE;
@@ -56,6 +72,11 @@ err_code SB_Device::recvMessage(uint8_t dat) {
 	return error;
 }
 
+/**
+ * @brief Send message in sendMsgBuf across SensorBus
+ * @param dat uint8_t pin bitmask for DAT line
+ * @return err_code integer error code
+ */
 err_code SB_Device::sendMessage(uint8_t dat) {
 	uint8_t tries = 0;
 	err_code error = UNDEFINED;
@@ -91,6 +112,10 @@ err_code SB_Device::sendMessage(uint8_t dat) {
 	return error;
 }
 
+/**
+ * @brief Set the maximum number of retries when sending a message
+ * @param retries Number of retries
+ */
 void SB_Device::setMaxSendRetries(uint8_t retries) {
 	_maxSendRetries = retries;
 }
@@ -99,13 +124,23 @@ void SB_Device::setMaxSendRetries(uint8_t retries) {
 *****  PROTECTED                                                           *****
 *******************************************************************************/
 
-void SB_Device::_clearBuffer(uint8_t* buf, uint8_t buf_len) {
-	for (uint8_t i = 0; i < buf_len; i++) {
+/**
+ * @brief Clear a buffer by writing all zeros to it
+ * @param buf Pointer to the buffer
+ * @param bufLen Length of buffer
+ */
+void SB_Device::_clearBuffer(uint8_t* buf, uint8_t bufLen) {
+	for (uint8_t i = 0; i < bufLen; i++) {
 		buf[i] = 0;
 	}
 }
 
-// Receives 8 bits of data, LSB first.
+/**
+ * @brief Receive 8 bits of data, LSB first, over SensorBus
+ * @param dat Pin bitmask for DAT line
+ * @param error err_code to set (passed by ref)
+ * @return Value of received byte
+ */
 uint8_t SB_Device::_getByte(uint8_t dat, err_code& error) {
 	uint8_t byte_val = 0;
 	for (uint8_t i = 0; i < 8; i++) {
@@ -129,6 +164,10 @@ uint8_t SB_Device::_getByte(uint8_t dat, err_code& error) {
 	return byte_val;
 }
 
+/**
+ * @brief Put device into receive mode & send acknowledge strobe
+ * @param dat Pin bitmask for DAT line
+ */
 void SB_Device::_setReceiveMode(uint8_t dat) {
 	// Wait for the dat signal to be released by remote device
 	_waitForState(_datPort, dat, HIGH, STD_TO_TICKS, STD_TO_LOOPS);
@@ -139,6 +178,11 @@ void SB_Device::_setReceiveMode(uint8_t dat) {
 	_datPort->DIRCLR = dat;				// Set dat pin to INPUT
 }
 
+/**
+ * @brief Put device into send mode, send strobe and wait for acknowledgment
+ * @param dat Pin bitmask for DAT line
+ * @return err_code - ERR_NONE for success
+ */
 err_code SB_Device::_setSendMode(uint8_t dat) {
 	err_code error = ERR_NONE;
 	bool clearToSend = _waitForState(_port, _act, HIGH);
@@ -163,12 +207,20 @@ err_code SB_Device::_setSendMode(uint8_t dat) {
 	return error;
 }
 
+/**
+ * @brief Take a line low for a period defined by STROBE_DURATION
+ * @param port Pointer to the port for the signal
+ * @param line Pin bitmask for the line
+ */
 void SB_Device::_strobeLine(volatile PORT_t* port, uint8_t line) {
 	port->OUTCLR = line;				// Take line LOW
 	_delay_us(STROBE_DURATION);			// Hold for a moment
 	port->OUTSET = line;				// Take line high
 }
 
+/**
+ * @brief Initialise the timer used for timeouts.
+ */
 void SB_Device::_timeoutCounterInit(void) {
 	TCB0.CTRLA = 0;						// Disable timer before configuration
 	TCB0.CTRLA = TCB_CLKSEL_CLKDIV2_gc;	// Select clock source
@@ -176,23 +228,47 @@ void SB_Device::_timeoutCounterInit(void) {
 	TCB0.INTFLAGS = TCB_CAPT_bm;		// Clear any pending interrupt flag
 }
 
+/**
+ * @brief Set the counter value used for timeouts & enable the timer.
+ * @param timeoutValue 16-bit value for counter
+ */
 void SB_Device::_timeoutCounterStart(uint16_t timeoutValue) {
 	TCB0.CNT = 0;     // Reset count
 	TCB0.CCMP = timeoutValue;			// Load rollover value
 	TCB0.CTRLA |= TCB_ENABLE_bm; 		// Enable the timer
 }
 
+/**
+ * @brief Halt the timeout counter
+ */
 void SB_Device::_timeoutCounterStop(void) {
 	TCB0.INTFLAGS = TCB_CAPT_bm;
 	TCB0.CTRLA &= ~TCB_ENABLE_bm;
 }
 
-// Wrapper that calls the main function with the default values for
-// timeoutTicks and maxLoops
+/**
+ * @brief Wrapper to next method, using default timeout values.
+ * @param port Pointer to the port used containing the target line
+ * @param pin Pin bitmask for the target signal
+ * @param state The desired state - HIGH or LOW
+ */
 bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin, uint8_t state) {
 	return _waitForState(port, pin, state, STD_TO_TICKS, STD_TO_LOOPS);
 }
 
+/**
+ * @brief Pause while waiting for a signal to go into a desired state.
+ * @param port Pointer to the port used containing the target line
+ * @param pin Pin bitmask for the target signal
+ * @param state The desired state - HIGH or LOW
+ * @param timeoutTicks 16-bit value for number of ticks to wait before looping
+ * @param maxloops 8-bit value for number of times we loop before timeout
+ * @return bool indicating whether desired state was achieved.
+ *
+ * The function will wait until the timer reaches its preset counter value.
+ * But that might not be long enough, so we also loop, resetting the timer
+ * and starting again. We set the number of times we loop.
+ */
 bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
 	uint8_t state, uint16_t timeoutTicks, uint8_t maxLoops) {
 	bool stateAchieved = false;
@@ -223,6 +299,8 @@ bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
 }
 
 /**
+ * @brief Set the default states for the SB_CLK and SB_ACT lines.
+ *
  * Will get overridden by child classes, probably. We'll do the minimum
  * necessary here as a placeholder.
  */
@@ -232,8 +310,8 @@ void SB_Device::_setDefaults(void) {
 }
 
 
-/* ***** FOR DEBUGGING ***** */
-// Intended for debugging only
+/* ***** FOR DEBUGGING ONLY - will be removed ***** */
+
 void SB_Device::printBuf(uint8_t* buf) {
 	for (uint8_t i = 0; i < MSG_BUF_LEN; i++) {
 		serial.write(buf[i]);
