@@ -1,11 +1,8 @@
 /* SB_devicelib_ng.cpp */
 
 #include "SB_devicelib_ng.h"
-#include "smd_ng_serial.h"
 
 using namespace SensorBus;
-
-extern SMD_NG_Serial serial;	// Intended for debugging only
 
 /*******************************************************************************
 *****  PUBLIC                                                              *****
@@ -66,7 +63,6 @@ err_code SB_Device::recvMessage(uint8_t dat) {
 			bufIdx++;
 		}
 	}
-	// printBuf(recvMsgBuf);
 	_delay_us(SETTLE_DELAY); 	// Let bus settle, interrupts re-arm
 	_setDefaults();
 	return error;
@@ -81,7 +77,6 @@ err_code SB_Device::sendMessage(uint8_t dat) {
 	uint8_t tries = 0;
 	err_code error = UNDEFINED;
 	while (tries < _maxSendRetries && error != ERR_NONE) {
-		serial.write(".");
 		error = _setSendMode(dat);
 		if (error == 0) {
 			uint8_t msgLen = sendMsgBuf[0];
@@ -307,23 +302,4 @@ bool SB_Device::_waitForState(volatile PORT_t* port, uint8_t pin,
 void SB_Device::_setDefaults(void) {
 	_port->OUTSET = _clk | _act;	// Pull high by default
 	_port->DIRCLR = _clk | _act; 	// Set to inputs
-}
-
-
-/* ***** FOR DEBUGGING ONLY - will be removed ***** */
-
-void SB_Device::printBuf(uint8_t* buf) {
-	for (uint8_t i = 0; i < MSG_BUF_LEN; i++) {
-		serial.write(buf[i]);
-		serial.write(" ");
-	}
-	serial.writeln(" ");
-}
-
-void SB_Device::printMsg(uint8_t* buf) {
-	for (uint8_t i = 0; i < buf[0]; i++) {
-		serial.write(buf[i]);
-		serial.write(" ");
-	}
-	serial.writeln(" ");
 }

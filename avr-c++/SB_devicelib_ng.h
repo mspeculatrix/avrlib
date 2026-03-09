@@ -79,10 +79,9 @@ namespace SensorBus {
 		const char* errMsg(err_code code);
 		volatile int8_t commRequestRcvd = -1;
 		uint8_t recvMsgBuf[MSG_BUF_LEN];
+
 		uint8_t sendMsgBuf[MSG_BUF_LEN];
 		void setMaxSendRetries(uint8_t retries);
-		void printBuf(uint8_t* buf);
-		void printMsg(uint8_t* buf);
 
 		err_code recvMessage(uint8_t dat);
 		err_code sendMessage(uint8_t dat);

@@ -15,4 +15,16 @@
 #define SBMSG_SET_PARAM 20	// msg from node to module, set a parameter
 #define SBMSG_GET_PARAM 21
 
+#ifndef OFF
+#define OFF 0
+#endif
+#ifndef ON
+#define ON 1
+#endif
+#ifndef LOW
+#define LOW 0
+#endif
+#ifndef HIGH
+#define HIGH 1
+#endif
 #endif

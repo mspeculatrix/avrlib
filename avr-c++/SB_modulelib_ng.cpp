@@ -11,9 +11,20 @@ SB_Module::SB_Module(volatile PORT_t* port,
 	: SB_Device(port, clkPin_pm, actPin_pm, datPort), // call parent constructor
 	_dat(datPin_pm),
 	_datCtrl(datCtrl) {
-
 	_setDefaults();
 	_timeoutCounterInit();
+}
+
+/**
+ * @brief Called by ISR to get & reset interrupt flags
+ */
+void SB_Module::getIntFlags(void) {
+	commRequestRcvd = _datPort->INTFLAGS; // gets bits triggering int(s)
+	_datPort->INTFLAGS = commRequestRcvd; // clear flags
+}
+
+void SB_Module::resetIntFlag(void) {
+	_datPort->INTFLAGS = _dat;
 }
 
 err_code SB_Module::sendMessage() {

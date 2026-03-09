@@ -54,6 +54,8 @@ public:
 		PORT_t* datPort, volatile uint8_t* datCtrl);
 
 	// METHODS
+	void getIntFlags(void);
+	void resetIntFlag(void);
 	err_code sendMessage(); // Overwrites parent method
 
 protected:
