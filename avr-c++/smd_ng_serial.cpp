@@ -1,26 +1,33 @@
 #include "smd_ng_serial.h"
 
-using namespace smd_ng_serial;
+// Initialize the static array to nulls
+SMD_NG_Serial* SMD_NG_Serial::instances[3] = { nullptr, nullptr, nullptr };
 
-// -------------------------------------------------------------------------
-// -----  EXPERIMENTAL                                                 -----
-// -------------------------------------------------------------------------
+// The generic interrupt handler
+void SMD_NG_Serial::handle_interrupt(uint8_t index) {
+	if (instances[index] != nullptr) {
+		SMD_NG_Serial* obj = instances[index];
 
-namespace smd_ng_serial {
-	uint8_t recvbuf[SER_RECV_BUF_SZ];
-	uint8_t recvbuf_write_idx = 0;
-	uint8_t recvbuf_read_idx = 0;
-}
+		// Read data from the hardware that triggered the interrupt
+		uint8_t data = obj->_hw->RXDATAL;
 
-// Interrupt service routine - invoked when data is received on USART0.
-ISR(USART0_RXC_vect) { // RX Complete
-	// get incoming byte & add to buffer
-	recvbuf[recvbuf_write_idx] = USART0.RXDATAL;
-	recvbuf_write_idx++;
-	if (recvbuf_write_idx == SER_RECV_BUF_SZ) {
-		recvbuf_write_idx = 0;
+		// Calculate next write position
+		uint8_t next_idx = (obj->_recvbuf_write_idx + 1) % SER_RECV_BUF_SZ;
+
+		// If buffer isn't full, store the byte
+		if (next_idx != obj->_recvbuf_read_idx) {
+			obj->_recvbuf[obj->_recvbuf_write_idx] = data;
+			obj->_recvbuf_write_idx = next_idx;
+		}
 	}
 }
+
+// ISR vector redirects
+ISR(USART0_RXC_vect) { SMD_NG_Serial::handle_interrupt(0); }
+ISR(USART1_RXC_vect) { SMD_NG_Serial::handle_interrupt(1); }
+ISR(USART2_RXC_vect) { SMD_NG_Serial::handle_interrupt(2); }
+
+
 
 // -------------------------------------------------------------------------
 // -----  CONSTRUCTORS                                                 -----
@@ -40,16 +47,12 @@ SMD_NG_Serial::SMD_NG_Serial(uint32_t baudrate, volatile PORT_t* port, uint8_t t
 	_init(baudrate, SER_DATA_BITS8, SER_STOP_BITS1, SER_PARITY_NONE, port, tx_pin_bm, rx_pin_bm);
 }
 
-// Specify everything
-SMD_NG_Serial::SMD_NG_Serial(uint32_t baudrate, uint8_t dataBits,
-	uint8_t stopBits, volatile PORT_t* port,
-	uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
+SMD_NG_Serial::SMD_NG_Serial(uint32_t baudrate, uint8_t dataBits, uint8_t stopBits,
+	volatile PORT_t* port, uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_init(baudrate, dataBits, stopBits, SER_PARITY_NONE, port, tx_pin_bm, rx_pin_bm);
 }
 
-// This is the main constructor, called by all the others.
-void SMD_NG_Serial::_init(uint32_t baudrate, uint8_t dataBits,
-	uint8_t stopBits, uint8_t parity,
+void SMD_NG_Serial::_init(uint32_t baudrate, uint8_t dataBits, uint8_t stopBits, uint8_t parity,
 	volatile PORT_t* port, uint8_t tx_pin_bm, uint8_t rx_pin_bm) {
 	_baud = baudrate;
 	_dataBits = dataBits;
@@ -61,37 +64,53 @@ void SMD_NG_Serial::_init(uint32_t baudrate, uint8_t dataBits,
 	_started = false;
 	_useCR = false;
 	_sendNullTerminator = false;
+	_recvbuf_read_idx = 0;
+	_recvbuf_write_idx = 0;
+	_hw = nullptr;
 }
 
 // -------------------------------------------------------------------------
 // -----  METHODS                                                      -----
 // -------------------------------------------------------------------------
+
 uint8_t SMD_NG_Serial::begin(void) {
-	uint8_t error = 0;
+	return begin(&USART0); // Default to USART0 for backward compatibility
+}
+
+uint8_t SMD_NG_Serial::begin(USART_t* usart_hw) {
+	_hw = usart_hw;
+
+	// Register this instance for the ISRs
+	if (_hw == &USART0) instances[0] = this;
+	else if (_hw == &USART1) instances[1] = this;
+	else if (_hw == &USART2) instances[2] = this;
+
 	cli();
+
+	// Calculate Baud Rate
 	uint16_t baud_setting = (64 * F_CPU + ((16UL * _baud) / 2)) / (16UL * _baud);
-	USART0.BAUD = baud_setting;
-	// Set the frame format with USART0.CTRLC
-	// From left to right:
-	// 00  = Asynchronous mode CMODE
-	// 00  = No parity         PMODE (01 = even)
-	// 0   = 1 stop bit        SBMODE
-	// 011 = 8 bits            CHSIZE
+	_hw->BAUD = baud_setting;
+
+	// Frame Format
 	uint8_t ctrlc = 0;
 	ctrlc |= (_parity << 4);
 	ctrlc |= (_stopBits << 3);
 	ctrlc |= (_dataBits);
-	USART0.CTRLC = ctrlc; 				// or could use USART_CHSIZE_8BIT_gc
-	USART0.CTRLC = USART_CHSIZE_8BIT_gc;
-	_port->DIRSET = _tx_pin_bm;					// Set TX pin as output
-	_port->DIRCLR = _rx_pin_bm;  				// Make sure RX pin is input
-	USART0.CTRLB = USART_RXEN_bm | USART_TXEN_bm; // Enable TX and RX
-	USART0.CTRLA = USART_RXCIE_bm;			// Enable RX complete interrupt
+	_hw->CTRLC = ctrlc;
 
-	if (error == 0) _started = true;
+	// Pin Configuration
+	_port->DIRSET = _tx_pin_bm;
+	_port->DIRCLR = _rx_pin_bm;
+
+	// Enable Hardware
+	_hw->CTRLB = USART_RXEN_bm | USART_TXEN_bm;
+	_hw->CTRLA = USART_RXCIE_bm; // Enable Receive Complete Interrupt
+
+	_started = true;
 	clearInputBuffer();
 	sei();
-	return error;
+
+	return 0;
 }
 
 bool SMD_NG_Serial::started(void) {
@@ -99,45 +118,32 @@ bool SMD_NG_Serial::started(void) {
 }
 
 void SMD_NG_Serial::clearInputBuffer(void) {
-	recvbuf_read_idx = 0;
-	recvbuf_write_idx = 0;
+	_recvbuf_read_idx = 0;
+	_recvbuf_write_idx = 0;
 }
 
 // -------------------------------------------------------------------------
 // -----  RECEIVING                                                    -----
 // -------------------------------------------------------------------------
+
+bool SMD_NG_Serial::inWaiting(void) {
+	return _recvbuf_write_idx != _recvbuf_read_idx;
+}
+
 uint8_t SMD_NG_Serial::getByte(void) {
-	// This doesn't test if there are unread bytes in the buffer.
-	// Always preceed by a test of inWaiting()
-	uint8_t byteVal = recvbuf[recvbuf_read_idx];
-	recvbuf_read_idx++;
-	if (recvbuf_read_idx == SER_RECV_BUF_SZ) recvbuf_read_idx = 0;
-	// OR
-	// recvbuf_read_idx = recvbuf_read_idx % SER_RECV_BUF_SZ;
+	uint8_t byteVal = _recvbuf[_recvbuf_read_idx];
+	_recvbuf_read_idx = (_recvbuf_read_idx + 1) % SER_RECV_BUF_SZ;
 	return byteVal;
 }
 
-bool SMD_NG_Serial::inWaiting(void) {
-	// return bit_is_set(UCSR0A, RXC0);
-	return recvbuf_write_idx != recvbuf_read_idx;
-}
-
 bool SMD_NG_Serial::readByte(uint8_t* byteVal) {
-	bool byteRead = false;
 	if (inWaiting()) {
-		byteRead = true;
-		*byteVal = recvbuf[recvbuf_read_idx];
-		recvbuf_read_idx++;
-		if (recvbuf_read_idx == SER_RECV_BUF_SZ) recvbuf_read_idx = 0;
-		// OR
-		// recvbuf_read_idx = recvbuf_read_idx % SER_RECV_BUF_SZ;
+		*byteVal = getByte();
+		return true;
 	}
-	return byteRead;
+	return false;
 }
 
-// UNTESTED:
-// Assumes all the bytes are in the RX buffer. It doesn't wait around.
-// Returns number of bytes actually read.
 uint8_t SMD_NG_Serial::readBytes(uint8_t* buf, uint8_t numToRead) {
 	uint8_t counter = 0;
 	uint8_t inByte = 0;
@@ -148,60 +154,38 @@ uint8_t SMD_NG_Serial::readBytes(uint8_t* buf, uint8_t numToRead) {
 	return counter;
 }
 
-uint8_t SMD_NG_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNewline = true) {
-	// You must pass a buffer and the size of the buffer. Giving a buffer
-	// size larger than the size of the actual buffer will result in a buffer
-	// overflow and unpredictable results. The length of the string is
-	// always one less than the size of the buffer because of the
-	// null termination.
-	// This reads input until:
-	//		* It encounters a 0 (NULL)
-	//		* It encounters a newline which is or is not included in the output depending on third param
-	//		* It reaches the length of the buffer.
-	// The incoming data is placed into the buffer. The method returns any
-	// error encountered.
+uint8_t SMD_NG_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNewline) {
 	uint8_t error = 0;
+	if (bufferSize < 2) return SER_ERR_READLINE_BUFFER_TOO_SMALL;
+
 	if (bufferSize > SER_READLINE_BUFFER_MAX) bufferSize = SER_READLINE_BUFFER_MAX;
-	if (bufferSize > 1) {
-		bool ended = false;
-		size_t index = 0;
-		uint8_t inByte = 0;
-		do {
-			if (readByte(&inByte)) {
-				if (inByte == 0) {					// null terminator received
-					buffer[index] = inByte;
-					ended = true;
-				} else if (inByte == SER_NL) {		// linefeed received
-					ended = true;
-					if (preserveNewline) {
-						buffer[index] = SER_NL;
-						if (index < bufferSize - 1) {
-							buffer[index + 1] = 0;
-						} else {
-							// sorry, but the newline is toast
-							buffer[index] = 0;	// think this duplicates case further down, but hey ho
-						}
-					} else {
-						buffer[index] = 0;	// replace NL with null terminator
-					}
-				} else if (inByte == SER_CR) {
-					// ignore carriage returns
-				} else if (index == bufferSize - 2) {
-					// we're at the penultimate char. The next one _has_ to be a
-					// terminating null, so let's add that and be done with it.
-					buffer[index] = inByte;
-					buffer[index + 1] = 0;
-					ended = true;
-				} else {
-					buffer[index] = inByte;
-					index++;
+
+	bool ended = false;
+	size_t index = 0;
+	uint8_t inByte = 0;
+
+	do {
+		if (readByte(&inByte)) {
+			if (inByte == 0) {
+				buffer[index] = 0;
+				ended = true;
+			} else if (inByte == SER_NL) {
+				if (preserveNewline && index < bufferSize - 1) {
+					buffer[index++] = SER_NL;
 				}
+				buffer[index] = 0;
+				ended = true;
+			} else if (inByte == SER_CR) {
+				// Skip CR
+			} else if (index >= bufferSize - 1) {
+				buffer[index] = 0;
+				ended = true;
+			} else {
+				buffer[index++] = inByte;
 			}
-		} while (!ended);
-	} else {
-		// minimum buffer size for this method is 2.
-		error = SER_ERR_READLINE_BUFFER_TOO_SMALL;
-	}
+		}
+	} while (!ended);
+
 	return error;
 }
 
@@ -209,106 +193,62 @@ uint8_t SMD_NG_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNe
 // -----  TRANSMITTING                                                 -----
 // -------------------------------------------------------------------------
 
-/** NB: currently we're not doing anything with the error codes - they're
-	not getting set anywhere, we're just returning default values meaning
-	success. They are in here for future development. **/
-
 bool SMD_NG_Serial::sendByte(uint8_t byteVal) {
-	bool error = false;
-	// Wait until data register empty
-	while (!(USART0.STATUS & USART_DREIF_bm)) {};
-	// Send data
-	USART0.TXDATAL = byteVal;
+	// Wait until data register is empty on the assigned hardware
+	while (!(_hw->STATUS & USART_DREIF_bm)) {};
+	_hw->TXDATAL = byteVal;
+
+	// Note: DEF_SEND_CHAR_DELAY might not be needed with DREIF check,
+	// but kept for consistency with your original code.
 	_delay_ms(DEF_SEND_CHAR_DELAY);
-	return error;
+	return false;
 }
 
-uint8_t SMD_NG_Serial::write(const char* string) {
-	uint8_t error = _writeStr(string, false);
-	return error;
-}
-
-uint8_t SMD_NG_Serial::write(const double fnum) {
-	uint8_t error = _writeDouble(fnum, false);
-	return error;
-}
-
-uint8_t SMD_NG_Serial::write(const int twoByteInt) {
-	uint8_t error = _writeInt16(twoByteInt, false);
-	return error;
-}
-
-uint8_t SMD_NG_Serial::write(const long longInt) {
-	uint8_t error = _writeLongInt(longInt, false);
-	return error;
-}
+uint8_t SMD_NG_Serial::write(const char* string) { return _writeStr(string, false); }
+uint8_t SMD_NG_Serial::write(const double fnum) { return _writeDouble(fnum, false); }
+uint8_t SMD_NG_Serial::write(const int twoByteInt) { return _writeInt16(twoByteInt, false); }
+uint8_t SMD_NG_Serial::write(const long longInt) { return _writeLongInt(longInt, false); }
 
 uint8_t SMD_NG_Serial::writeChar(const char ch) {
-	char sendChar[1 + sizeof(char)];
-	sprintf(sendChar, "%c", ch);
-	uint8_t error = _writeStr(sendChar, false);
-	return error;
+	sendByte((uint8_t)ch);
+	return 0;
 }
 
-uint8_t SMD_NG_Serial::writeln(const char* string) {
-	return _writeStr(string, true);
-}
+uint8_t SMD_NG_Serial::writeln(const char* string) { return _writeStr(string, true); }
+uint8_t SMD_NG_Serial::writeln(const int twoByteInt) { return _writeInt16(twoByteInt, true); }
+uint8_t SMD_NG_Serial::writeln(const long longInt) { return _writeLongInt(longInt, true); }
+uint8_t SMD_NG_Serial::writeln(const double fnum) { return _writeDouble(fnum, true); }
 
-uint8_t SMD_NG_Serial::writeln(const int twoByteInt) {
-	return _writeInt16(twoByteInt, true);
-}
-
-uint8_t SMD_NG_Serial::writeln(const long longInt) {
-	return _writeLongInt(longInt, true);
-}
-
-uint8_t SMD_NG_Serial::writeln(const double fnum) {
-	return _writeDouble(fnum, true);
-}
-
-
-uint8_t SMD_NG_Serial::_writeDouble(const double fnum, bool addReturn = false) {
-	uint8_t resultCode = 0;
+uint8_t SMD_NG_Serial::_writeDouble(const double fnum, bool addReturn) {
 	char numStr[30];
-	// see: http://www.atmel.com/webdoc/AVRLibcReferenceManual/group__avr__stdlib_1ga060c998e77fb5fc0d3168b3ce8771d42.html
 	dtostrf(fnum, 3, 5, numStr);
-	_writeStr(numStr, addReturn);
-	return resultCode;
+	return _writeStr(numStr, addReturn);
 }
 
-uint8_t SMD_NG_Serial::_writeInt16(const int twoByteInt, bool addReturn = false) {
-	uint8_t resultCode = 0;
+uint8_t SMD_NG_Serial::_writeInt16(const int twoByteInt, bool addReturn) {
 	char numStr[20];
 	itoa(twoByteInt, numStr, 10);
-	//sprintf(numStr, "%i", twoByteInt);
-	_writeStr(numStr, addReturn);
-	return resultCode;
+	return _writeStr(numStr, addReturn);
 }
 
-uint8_t SMD_NG_Serial::_writeLongInt(const long longInt, bool addReturn = false) {
-	uint8_t resultCode = 0;
+uint8_t SMD_NG_Serial::_writeLongInt(const long longInt, bool addReturn) {
 	char numStr[30];
 	ltoa(longInt, numStr, 10);
-	_writeStr(numStr, addReturn);
-	return resultCode;
+	return _writeStr(numStr, addReturn);
 }
 
-// This is the main function used by the other write() and writeln() methods.
 uint8_t SMD_NG_Serial::_writeStr(const char* string, bool addReturn) {
-	uint8_t resultCode = 0;
-	if (strlen(string) > 0) {
-		uint8_t i = 0;
-		do {
-			sendByte(string[i]);
-			i++;
-		} while (string[i] != 0);
-		if (addReturn) {
-			if (_useCR) sendByte(SER_CR);
-			sendByte(SER_NL);
-		}
-		if (_sendNullTerminator) sendByte(SER_NUL);
-	} else {
-		resultCode = SER_RES_EMPTY_STRING;
+	if (string[0] == 0) return SER_RES_EMPTY_STRING;
+
+	for (size_t i = 0; string[i] != 0; i++) {
+		sendByte(string[i]);
 	}
-	return resultCode;
+
+	if (addReturn) {
+		if (_useCR) sendByte(SER_CR);
+		sendByte(SER_NL);
+	}
+	if (_sendNullTerminator) sendByte(SER_NUL);
+
+	return 0;
 }

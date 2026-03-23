@@ -75,11 +75,15 @@ public:
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
 
 	// Methods
-	uint8_t begin(void);                // initialise
+	uint8_t begin(void);	// init with specific USART
+	uint8_t begin(USART_t* usart_hw);	// init with specific USART
 	bool started(void);
 	void clearInputBuffer(void);
 	void useNullTerminator(bool sendNull) { _sendNullTerminator = sendNull; }
 	void addCarriageReturn(bool addCR) { _useCR = addCR; }
+
+	// Static method called by the ISRs
+	static void handle_interrupt(uint8_t index);
 
 	// Receiving
 	uint8_t getByte(void);            // read a byte
@@ -104,6 +108,20 @@ public:
 	uint8_t writeln(const double fnum);
 
 protected:
+	USART_t* _hw;				// Pointer to the specific USART
+
+	uint8_t _instance_idx; // 0 for USART0, 1 for USART1, etc.
+
+	// Receive buffers
+	volatile uint8_t _recvbuf[SER_RECV_BUF_SZ];
+	volatile uint8_t _recvbuf_write_idx;
+	volatile uint8_t _recvbuf_read_idx;
+
+	// Static array to keep track of created instances
+	static SMD_NG_Serial* instances[3];
+
+
+
 	uint16_t _baud;
 	uint8_t _dataBits;
 	bool _echo;
@@ -119,6 +137,7 @@ protected:
 	void _init(uint32_t baudrate, uint8_t dataBits, uint8_t stopBits,
 		uint8_t parity, volatile PORT_t* port,
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
+
 	uint8_t _writeInt16(const int twoByteInt, bool addReturn);	// max 32767
 	uint8_t _writeLongInt(const long longInt, bool addReturn);
 	uint8_t _writeDouble(const double fnum, bool addReturn);
