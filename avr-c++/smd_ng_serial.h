@@ -3,6 +3,13 @@
   (Series-0, Series-1, Series-2)
 
   *** IMPORTANT - F_CPU must be set. ***
+  Also, you may need to disable clock prescaling. For example, on the
+  ATmega4809 I had to use:
+
+  #include <avr/cpufunc.h> // Required for ccp_write_io
+
+  And then, in the
+
 
   Typical use:
   SMD_NG_Serial serial = SMD_NG_Serial(19200, &PORTA, PIN0_bm, PIN1_bm);
@@ -16,6 +23,7 @@
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/cpufunc.h> // Required for ccp_write_io
 #include <util/delay.h>
 #include <stdlib.h>
 #include <math.h>
@@ -93,7 +101,7 @@ public:
 	uint8_t readLine(char* buffer, size_t bufferSize, bool preserveNewline);
 
 	// Transmitting
-	bool sendByte(uint8_t byteVal); 		// send single byte
+	void sendByte(uint8_t byteVal); 		// send single byte
 
 	uint8_t write(const char* string);
 	uint8_t write(const int twoByteInt);	// max value 32767

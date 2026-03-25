@@ -80,6 +80,9 @@ uint8_t SMD_NG_Serial::begin(void) {
 uint8_t SMD_NG_Serial::begin(USART_t* usart_hw) {
 	_hw = usart_hw;
 
+	// Disable the default /6 prescaler to run at the full speed
+	ccp_write_io((uint8_t*)&CLKCTRL.MCLKCTRLB, 0x00);
+
 	// Register this instance for the ISRs
 	if (_hw == &USART0) instances[0] = this;
 	else if (_hw == &USART1) instances[1] = this;
@@ -193,15 +196,13 @@ uint8_t SMD_NG_Serial::readLine(char* buffer, size_t bufferSize, bool preserveNe
 // -----  TRANSMITTING                                                 -----
 // -------------------------------------------------------------------------
 
-bool SMD_NG_Serial::sendByte(uint8_t byteVal) {
+void SMD_NG_Serial::sendByte(uint8_t byteVal) {
 	// Wait until data register is empty on the assigned hardware
 	while (!(_hw->STATUS & USART_DREIF_bm)) {};
 	_hw->TXDATAL = byteVal;
 
-	// Note: DEF_SEND_CHAR_DELAY might not be needed with DREIF check,
-	// but kept for consistency with your original code.
-	_delay_ms(DEF_SEND_CHAR_DELAY);
-	return false;
+	// Note: DEF_SEND_CHAR_DELAY might not really needed with DREIF check
+	// _delay_ms(DEF_SEND_CHAR_DELAY);
 }
 
 uint8_t SMD_NG_Serial::write(const char* string) { return _writeStr(string, false); }
