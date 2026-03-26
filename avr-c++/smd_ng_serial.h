@@ -1,21 +1,20 @@
-/*
-  C++ Serial Library for modern AVR microcontrollers
-  (Series-0, Series-1, Series-2)
-
-  *** IMPORTANT - F_CPU must be set. ***
-  Also, you may need to disable clock prescaling. For example, on the
-  ATmega4809 I had to use:
-
-  #include <avr/cpufunc.h> // Required for ccp_write_io
-
-  And then, in the
-
-
-  Typical use:
-  SMD_NG_Serial serial = SMD_NG_Serial(19200, &PORTA, PIN0_bm, PIN1_bm);
-
-  uint8_t error = serial.begin();
-
+/**
+ * @file smd_ng_serial.h
+ *
+ * C++ Serial Library for modern AVR microcontrollers
+ * (Series-0, Series-1, Series-2)
+ *
+ * *** IMPORTANT - F_CPU must be set. ***
+ *
+ * Each instance has its own receive buffer.
+ *
+ * Typical use:
+ * SMD_NG_Serial serial = SMD_NG_Serial(19200, &PORTA, PIN0_bm, PIN1_bm);
+ * uint8_t error = serial.begin();
+ *
+ * TO DO:
+ * - Need to do more with receive buffer.
+ * - Not quite sure if all the read functions use the buffer or read directly.
 */
 
 #ifndef __SMD_NG_SERIAL_H__
@@ -97,6 +96,7 @@ public:
 	uint8_t getByte(void);            // read a byte
 	bool inWaiting(void);             // is there a byte waiting in the buffer?
 	bool readByte(uint8_t* byteVal);  // read a byte from buffer
+	uint8_t readBytes(char* buf, uint8_t numToRead);
 	uint8_t readBytes(uint8_t* buf, uint8_t numToRead);
 	uint8_t readLine(char* buffer, size_t bufferSize, bool preserveNewline);
 
@@ -105,6 +105,7 @@ public:
 
 	uint8_t write(const char* string);
 	uint8_t write(const int twoByteInt);	// max value 32767
+	uint8_t write(const uint16_t word);
 	uint8_t write(const long longInt);
 	uint8_t write(const double fnum);
 
@@ -112,6 +113,7 @@ public:
 
 	uint8_t writeln(const char* string);
 	uint8_t writeln(const int twoByteInt);
+	uint8_t writeln(const uint16_t word);
 	uint8_t writeln(const long longInt);
 	uint8_t writeln(const double fnum);
 
@@ -127,8 +129,6 @@ protected:
 
 	// Static array to keep track of created instances
 	static SMD_NG_Serial* instances[3];
-
-
 
 	uint16_t _baud;
 	uint8_t _dataBits;
