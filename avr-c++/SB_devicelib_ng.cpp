@@ -1,4 +1,10 @@
-/* SB_devicelib_ng.cpp */
+/**
+ * @file SB_devicelib_ng.cpp
+ * @brief Sensor Bus device class
+ * @version 0.1
+ * @author Machina Speculatrix
+ * @date 2026-03-28
+ */
 
 #include "SB_devicelib_ng.h"
 

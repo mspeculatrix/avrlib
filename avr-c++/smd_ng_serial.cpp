@@ -1,5 +1,9 @@
 /**
  * @file smd_ng_serial.cpp
+ * @brief ${cursor}
+ * @version 0.1
+ * @author Machina Speculatrix
+ * @date 2026-03-28
  */
 
 #include "smd_ng_serial.h"
@@ -280,28 +284,8 @@ void SMD_NG_Serial::sendByte(uint8_t byteVal) {
 	// _delay_ms(DEF_SEND_CHAR_DELAY);
 }
 
-// The following public methods are just wrappers to more fundamental private
-// methods. They provide overloading of methods to handle different data types.
-// I really need to learn about template methods.
-
 uint8_t SMD_NG_Serial::write(const char* string) {
 	return _writeStr(string, false);
-}
-
-uint8_t SMD_NG_Serial::write(const double fnum) {
-	return _writeDouble(fnum, false);
-}
-
-uint8_t SMD_NG_Serial::write(const uint16_t word) {
-	return _writeInt16((int)word, false);
-}
-
-uint8_t SMD_NG_Serial::write(const int twoByteInt) {
-	return _writeInt16(twoByteInt, false);
-}
-
-uint8_t SMD_NG_Serial::write(const long longInt) {
-	return _writeLongInt(longInt, false);
 }
 
 uint8_t SMD_NG_Serial::writeChar(const char ch) {
@@ -313,42 +297,8 @@ uint8_t SMD_NG_Serial::writeln(const char* string) {
 	return _writeStr(string, true);
 }
 
-uint8_t SMD_NG_Serial::writeln(const uint16_t word) {
-	return _writeInt16((int)word, true);
-}
-
-uint8_t SMD_NG_Serial::writeln(const int twoByteInt) {
-	return _writeInt16(twoByteInt, true);
-}
-
-uint8_t SMD_NG_Serial::writeln(const long longInt) {
-	return _writeLongInt(longInt, true);
-}
-
-uint8_t SMD_NG_Serial::writeln(const double fnum) {
-	return _writeDouble(fnum, true);
-}
 
 // -----  PRIVATE/PROTECTED ----------------------------------------------------
-
-
-uint8_t SMD_NG_Serial::_writeDouble(const double fnum, bool addReturn) {
-	char numStr[30];
-	dtostrf(fnum, 3, 5, numStr);
-	return _writeStr(numStr, addReturn);
-}
-
-uint8_t SMD_NG_Serial::_writeInt16(const int twoByteInt, bool addReturn) {
-	char numStr[20];
-	itoa(twoByteInt, numStr, 10);
-	return _writeStr(numStr, addReturn);
-}
-
-uint8_t SMD_NG_Serial::_writeLongInt(const long longInt, bool addReturn) {
-	char numStr[30];
-	ltoa(longInt, numStr, 10);
-	return _writeStr(numStr, addReturn);
-}
 
 uint8_t SMD_NG_Serial::_writeStr(const char* string, bool addReturn) {
 	if (string[0] == 0) return SER_RES_EMPTY_STRING;

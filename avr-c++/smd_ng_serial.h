@@ -15,6 +15,11 @@
  * TO DO:
  * - Need to do more with receive buffer.
  * - Not quite sure if all the read functions use the buffer or read directly.
+ *
+ * Revised version using template write functions for numeric types.
+ * Because the templates are defined in the header, the compiler instantiates
+ * them at the call site. On AVR this is fine and actually desirable — it keeps
+ * code size lean since only the types we actually use get compiled in.
 */
 
 #ifndef __SMD_NG_SERIAL_H__
@@ -103,24 +108,32 @@ public:
 	// Transmitting
 	void sendByte(uint8_t byteVal); 		// send single byte
 
+	// Functions to handle C-string & char types
 	uint8_t write(const char* string);
-	uint8_t write(const int twoByteInt);	// max value 32767
-	uint8_t write(const uint16_t word);
-	uint8_t write(const long longInt);
-	uint8_t write(const double fnum);
-
+	uint8_t write(char* string) { return write((const char*)string); }
 	uint8_t writeChar(const char ch);
-
 	uint8_t writeln(const char* string);
-	uint8_t writeln(const int twoByteInt);
-	uint8_t writeln(const uint16_t word);
-	uint8_t writeln(const long longInt);
-	uint8_t writeln(const double fnum);
+	uint8_t writeln(char* string) { return writeln((const char*)string); }
+
+	// Template functions to handle numeric types
+	template<typename T>
+	uint8_t write(T value) {
+		char buf[30];
+		_formatNum(value, buf);
+		return this->_writeStr(buf, false);
+	}
+
+	template<typename T>
+	uint8_t writeln(T value) {
+		char buf[30];
+		_formatNum(value, buf);
+		return this->_writeStr(buf, true);
+	}
 
 protected:
-	USART_t* _hw;				// Pointer to the specific USART
 
-	uint8_t _instance_idx; // 0 for USART0, 1 for USART1, etc.
+	USART_t* _hw;				// Pointer to the specific USART
+	uint8_t _instance_idx; 		// 0 for USART0, 1 for USART1, etc.
 
 	// Receive buffers
 	volatile uint8_t _recvbuf[SER_RECV_BUF_SZ];
@@ -135,20 +148,28 @@ protected:
 	bool _echo;
 	uint8_t _stopBits;
 	uint8_t _parity;
-	volatile PORT_t* _port;
-	uint8_t _rx_pin_bm;
-	uint8_t _tx_pin_bm;
-	bool _started;
-	bool _sendNullTerminator;	// add null terminator 0 to end of all sends?
+	volatile PORT_t* _port;		// Starting to question if we need these
+	uint8_t _rx_pin_bm;			// three settings, but keeping for now for
+	uint8_t _tx_pin_bm;			// backward compatibility.
+	bool _started;				// have we called begin()?
+	bool _sendNullTerminator;	// add null terminator 0 to end of all writes?
 	bool _useCR;
 
 	void _init(uint32_t baudrate, uint8_t dataBits, uint8_t stopBits,
 		uint8_t parity, volatile PORT_t* port,
 		uint8_t tx_pin_bm, uint8_t rx_pin_bm);
 
-	uint8_t _writeInt16(const int twoByteInt, bool addReturn);	// max 32767
-	uint8_t _writeLongInt(const long longInt, bool addReturn);
-	uint8_t _writeDouble(const double fnum, bool addReturn);
+	// Overloaded helpers called by template functions write() and writeln().
+	// There's one helper function per numeric type. Each converts a number
+	// to a string. The result is always sent as a decimal number in string
+	// form - ie, the value 12 will be sent as "12".
+	// Any required format conversion - eg, to hex - is an implementation
+	// detail that should be dealt with by the calling program.
+	void _formatNum(int v, char* buf) { itoa(v, buf, 10); }
+	void _formatNum(unsigned int v, char* buf) { utoa(v, buf, 10); }
+	void _formatNum(long v, char* buf) { ltoa(v, buf, 10); }
+	void _formatNum(double v, char* buf) { dtostrf(v, 3, 5, buf); }
+
 	uint8_t _writeStr(const char* string, bool addReturn);
 };
 
